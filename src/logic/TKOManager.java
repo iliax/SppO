@@ -56,9 +56,9 @@ public class TKOManager {
             String name;
             Integer binCode, size;
 
-            if(table.getValueAt(i, 0)!=null){
+            if(table.getValueAt(i, 0)!=null  && !((String)table.getValueAt(i, 0)).isEmpty() ){
                 name = (String)table.getValueAt(i, 0);
-                binCode=Integer.parseInt((String)table.getValueAt(i, 1));
+                binCode=Integer.parseInt((String)table.getValueAt(i, 1), 16);   //16ричный код
                 size=Integer.parseInt((String)table.getValueAt(i, 2));
                 TKO.add(new TKOItem(name, binCode, size));
             }

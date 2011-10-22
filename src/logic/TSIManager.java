@@ -42,7 +42,7 @@ public class TSIManager {
             TSI.put(name, adr);
     }
 
-    public int getLabelsAdress(String lbl){
+    public Integer getLabelsAdress(String lbl){
         return TSI.get(lbl);
     }
 
@@ -71,8 +71,9 @@ public class TSIManager {
         TSI.clear();
     }
 
-    public class RepeatedLabelException extends RuntimeException{
+    public class RepeatedLabelException extends RuntimeException {
         // внутренний, чтоб классы новые особо не плодить + ошибка тематическая -> есть связьность с TSIManagerom
     }
-    
+
+
 }

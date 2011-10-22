@@ -12,11 +12,11 @@ public class GuiConfig {
     
     public JTable TSITable, TKOTable, AdditionalTable, SourceTable ;
 
-    public JTextArea firstScanErrors, secondScanErrors;
+    public JTextArea firstScanErrors, secondScanErrors, ObjectModuleArea;
 
     public JTextField header;
 
-    public GuiConfig(JTable TSITable, JTable TKOTable, JTable AdditionalTable, JTable SourceTable, JTextArea FirstScanErrors, JTextArea SecondScanErrors, JTextField header) {
+    public GuiConfig(JTable TSITable, JTable TKOTable, JTable AdditionalTable, JTable SourceTable, JTextArea FirstScanErrors, JTextArea SecondScanErrors, JTextField header, JTextArea objectModuleArea) {
         this.TSITable = TSITable;
         this.TKOTable = TKOTable;
         this.AdditionalTable = AdditionalTable;
@@ -24,6 +24,7 @@ public class GuiConfig {
         this.firstScanErrors = FirstScanErrors;
         this.secondScanErrors = SecondScanErrors;
         this.header = header;
+        this.ObjectModuleArea=objectModuleArea;
     }
 
 
