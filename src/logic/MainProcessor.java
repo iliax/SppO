@@ -139,7 +139,7 @@ public class MainProcessor {
         if(str!=null)
             try{
                 //str="0x"+str;
-                ip= Integer.parseInt(str);
+                ip= Integer.parseInt(str,16);
                 System.out.println("ip="+ip);
             } catch(Exception e){
                 print1stScanError("start address missed!");
@@ -157,13 +157,13 @@ public class MainProcessor {
     private Pair<Integer, Boolean> isDirective(String str){
         if(str == null)
             return null;
-        if(str.equals("RESB"))
+        if(str.equalsIgnoreCase("RESB"))
             return new Pair<Integer, Boolean>(1, false);
-        else    if(str.equals("RESW"))
+        else    if(str.equalsIgnoreCase("RESW"))
             return new Pair<Integer, Boolean>(3, false);
-        else    if(str.equals("BYTE"))
+        else    if(str.equalsIgnoreCase("BYTE"))
             return new Pair<Integer, Boolean>(1, true);
-        else    if(str.equals("WORD"))
+        else    if(str.equalsIgnoreCase("WORD"))
             return new Pair<Integer, Boolean>(3, true);
         else
             return null;
