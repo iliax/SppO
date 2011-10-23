@@ -3,6 +3,7 @@ package logic;
 import java.util.HashMap;
 import java.util.Map;
 import javax.swing.JTable;
+import sppo.Main;
 
 /**
  *
@@ -69,6 +70,8 @@ public class TSIManager {
 
     void clear() {
         TSI.clear();
+        if(tsitable!=null)
+            Main.clearJTable(tsitable);
     }
 
     public class RepeatedLabelException extends RuntimeException {

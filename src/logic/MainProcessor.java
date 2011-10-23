@@ -3,6 +3,7 @@ package logic;
 import java.util.*;
 import javax.swing.*;
 import logic.TKOManager.TKOItem;
+import sppo.Main;
 
 /**
  *
@@ -61,20 +62,21 @@ public class MainProcessor {
     }
 
     private void showEnding() {
-        guiConfig.ObjectModuleArea.setText(guiConfig.ObjectModuleArea.getText()+"E  "+Integer.toHexString(startAddress) + "h");
+        guiConfig.ObjectModuleArea.setText(guiConfig.ObjectModuleArea.getText()+"E  "+toHexStr(startAddress) + "h");
     }
 
     public void processFirstScan() {
         tKOManager.reloadTKO();
         guiConfig.firstScanErrors.setText("");
         tSIManager.clear();
+        Main.clearJTable(guiConfig.AdditionalTable);
 
         getProgramStartAddress();
 
-        for(int i=1; guiConfig.SourceTable.getValueAt(i, 1)!=null; i++){
-            processLabelField(i);
+        for(int i=1; guiConfig.SourceTable.getValueAt(i, 1)!=null
+                && !((String)guiConfig.SourceTable.getValueAt(i, 1)).equalsIgnoreCase("END"); i++){
 
-            //guiConfig.AdditionalTable.setValueAt(ip, i, 0); 
+            processLabelField(i);
 
             processOperation(i);
             System.out.println("ip=="+ip);
@@ -231,7 +233,7 @@ public class MainProcessor {
         for(AdditionalTableItem ati : additionalTable){
             guiConfig.AdditionalTable.setValueAt(toHexStr(ati.getAdress()), i, 0);
             if(ati.getOperationCode() > 0){
-                guiConfig.AdditionalTable.setValueAt(ati.getOperationCode()+"h", i, 1);
+                guiConfig.AdditionalTable.setValueAt(Integer.toHexString(ati.getOperationCode())+"h", i, 1);
                 if(ati.getOpers().length > 0){
                     guiConfig.AdditionalTable.setValueAt(ati.getOpers()[0], i, 2);
                     if(ati.getOpers()[1] !=null)
@@ -353,13 +355,13 @@ public class MainProcessor {
         AdditionalTableItem ati=additionalTable.get(index);
 
         String body="T  ";
-        body+=toHexStr(ati.adress)+"  ";
+        body+=toHexStr(ati.adress)+"   ";
         
         if(ati.getOperationCode() == -1){       //byte or word
             if(ati.operands[0].equalsIgnoreCase("BYTE"))
-                body+= Integer.toHexString(_getOperandSize(ati.operands[1])*2)+" ";
+                body+= Integer.toHexString(_getOperandSize(ati.operands[1])*2)+"  ";
             else
-                body+= Integer.toHexString(_getOperandSize(ati.operands[1])*6)+" ";
+                body+= Integer.toHexString(_getOperandSize(ati.operands[1])*6)+"  ";
 
             body+=" "+getOperandsRealView(ati.operands[1])+" ";
 
@@ -369,7 +371,7 @@ public class MainProcessor {
             body+= Integer.toHexString( ati.getTkoOperationSize()*2) + "h ";
             body+= Integer.toHexString(ati.getOperationCode()) + "h ";
             try {
-                body+= " "+getOperandsInRightWay(ati.operands);
+                body+= "  "+getOperandsInRightWay(ati.operands);
             } catch(IllegalArgumentException e){
                 body="";
                 print2ndScanError(e.getMessage());
@@ -400,7 +402,7 @@ public class MainProcessor {
                         } else {                                         //number or unregistered label
                                 String test= toHexStr(s);
                                 if(test!=null)
-                                    result+="test";
+                                    result+=test;
                                 else
                                     throw new IllegalArgumentException("unregistered label '" + s+"'");
                         }
