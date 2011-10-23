@@ -181,7 +181,7 @@ public class MainProcessor {
                     tSIManager.addToTSI(lbl, ip);
                     System.out.println("lbl added!");
                 } catch(Exception e){
-                    print1stScanError("repeated Label!");
+                    print1stScanError("repeated Label! "+lbl);
                 }
 
         tSIManager.repaintTSITable();       //////
@@ -298,7 +298,50 @@ public class MainProcessor {
             }
             return s;
         }
+
+        //преобразование 10ого числа d 16ую
+        if(obj instanceof String){
+            try{
+                int val= Integer.parseInt((String)obj);
+                return toHexStr(val);
+            }
+            catch(Exception e){
+                return null;
+            }
+        }
         return null;
+    }
+
+    private boolean checkOperandsValidity(AdditionalTableItem ati) {
+        if(ati.tkoOperationSize > 1){
+            if(ati.tkoOperationSize == 4){  //должна быть 1 метка
+                if(ati.operands.length >=2 && ati.operands[0]!=null){
+                    if(tSIManager.getLabelsAdress(ati.operands[0]) != null){
+                        return true;
+                    } else {
+                        print2ndScanError("unregitered label! " + ati.operands[0]);
+                        return false;
+                    }
+                }
+            }
+
+            if(ati.tkoOperationSize == 2){          // 2 registers
+                if(ati.operands.length >=2 && ati.operands[0]!=null && ati.operands[0]!=null){
+                    if((checkRegister(ati.operands[0]) > 0)  && (checkRegister(ati.operands[1]) > 0)){
+                        return true;
+                    }
+                    else {
+                        print2ndScanError("not valid operands! "+toHexStr(ati.getAdress()));
+                        return false;
+                    }
+                }
+            }
+
+            print2ndScanError("not valid operands! "+toHexStr(ati.getAdress()));
+            return false;
+        }
+        else
+            return true;
     }
 
 
@@ -370,11 +413,17 @@ public class MainProcessor {
         } else {                                    //operation
             body+= Integer.toHexString( ati.getTkoOperationSize()*2) + "h ";
             body+= Integer.toHexString(ati.getOperationCode()) + "h ";
-            try {
-                body+= "  "+getOperandsInRightWay(ati.operands);
-            } catch(IllegalArgumentException e){
-                body="";
-                print2ndScanError(e.getMessage());
+            if(ati.getTkoOperationSize() != 1){   //if size=1 -> no operands
+                if(checkOperandsValidity(ati)){
+                    try {
+                        body+= "  "+getOperandsInRightWay(ati.operands);
+                    } catch(IllegalArgumentException e){
+                        body="";
+                        print2ndScanError(e.getMessage());
+                    }
+                } else {
+                    body+= "invalid operands ";
+                }
             }
         }
 
@@ -394,19 +443,20 @@ public class MainProcessor {
                 if(checkRegister(s) > 0){       //register
                     result+=checkRegister(s)+" ";
                 } else {
-                    if(s.startsWith("'")){          //string
-                        result+=s+"_h ";
-                    } else {                    //maybe label?
+//                    if(s.startsWith("'")){          //string
+//                        result+=getOperandsRealView(s);
+//                    }
+//                    else                     //maybe label?
                         if(tSIManager.getLabelsAdress(s) != null){
                             result+=toHexStr(tSIManager.getLabelsAdress(s))+" ";
                         } else {                                         //number or unregistered label
-                                String test= toHexStr(s);
-                                if(test!=null)
-                                    result+=test;
-                                else
+//                                String test= toHexStr(s);
+//                                if(test!=null)
+//                                    result+=test;
+//                                else
                                     throw new IllegalArgumentException("unregistered label '" + s+"'");
                         }
-                    }
+                    
                 }
             }
         }
