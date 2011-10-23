@@ -37,11 +37,12 @@ public class MainProcessor {
         for(int i=0; i<additionalTable.size(); i++)
             processAdditionalTableItem(i);
 
+        showEnding();
         
     }
 
     private void showHeader(){
-        String header="H ";
+        String header="H  ";
         String progName, startAdr;
         progName=(String)guiConfig.SourceTable.getValueAt(0, 0);
         if(progName == null)
@@ -59,8 +60,13 @@ public class MainProcessor {
         guiConfig.ObjectModuleArea.setText(header);
     }
 
+    private void showEnding() {
+        guiConfig.ObjectModuleArea.setText(guiConfig.ObjectModuleArea.getText()+"E  "+Integer.toHexString(startAddress) + "h");
+    }
+
     public void processFirstScan() {
         tKOManager.reloadTKO();
+        guiConfig.firstScanErrors.setText("");
         tSIManager.clear();
 
         getProgramStartAddress();
@@ -263,11 +269,17 @@ public class MainProcessor {
     }
 
     public int checkRegister(String s){
-        if(s.equalsIgnoreCase("R1") || s.equalsIgnoreCase("R2") || s.equalsIgnoreCase("R3") || s.equalsIgnoreCase("R4")
-                || s.equalsIgnoreCase("R5") || s.equalsIgnoreCase("R6")
-                || s.equalsIgnoreCase("R7") || s.equalsIgnoreCase("R8") || s.equalsIgnoreCase("R9")
-        )
-            return 100500;
+        if(s.startsWith("R")){
+            try {
+                int val= Integer.parseInt(s.substring(1));
+                if(val <= 16 && val >= 1)
+                    return val;
+                else
+                    return 0;
+            } catch(Exception e){
+                return  0;
+            }
+        }
         else
             return 0;
     }
@@ -286,6 +298,8 @@ public class MainProcessor {
         }
         return null;
     }
+
+
 
     private class Pair<A,B>{
         private A a;
@@ -338,24 +352,24 @@ public class MainProcessor {
     private void processAdditionalTableItem(int index){
         AdditionalTableItem ati=additionalTable.get(index);
 
-        String body="T ";
-        body+=toHexStr(ati.adress)+" ";
+        String body="T  ";
+        body+=toHexStr(ati.adress)+"  ";
         
         if(ati.getOperationCode() == -1){       //byte or word
             if(ati.operands[0].equalsIgnoreCase("BYTE"))
-                body+= Integer.toHexString(_getOperandSize(ati.operands[1])*2);
+                body+= Integer.toHexString(_getOperandSize(ati.operands[1])*2)+" ";
             else
-                body+= Integer.toHexString(_getOperandSize(ati.operands[1])*6);
+                body+= Integer.toHexString(_getOperandSize(ati.operands[1])*6)+" ";
 
             body+=" "+getOperandsRealView(ati.operands[1])+" ";
 
         } else if(ati.getOperationCode() == -2){    //resb or resw
-            body+=toHexStr(ati.adress);
+           ;// body+=toHexStr(ati.adress);
         } else {                                    //operation
             body+= Integer.toHexString( ati.getTkoOperationSize()*2) + "h ";
             body+= Integer.toHexString(ati.getOperationCode()) + "h ";
             try {
-                body+= getOperandsInRightWay(ati.operands);
+                body+= " "+getOperandsInRightWay(ati.operands);
             } catch(IllegalArgumentException e){
                 body="";
                 print2ndScanError(e.getMessage());

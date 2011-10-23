@@ -6,6 +6,7 @@
 package sppo;
 
 import gui.MainForm;
+import javax.swing.JTable;
 import javax.swing.UIManager;
 import javax.swing.UIManager.LookAndFeelInfo;
 
@@ -30,6 +31,12 @@ public class Main {
         }
 
         MainForm.main(args);
+    }
+
+    public static void clearJTable(JTable table){
+        for(int i=0; i<table.getRowCount(); i++)
+            for(int j=0; j< table.getColumnCount(); j++)
+                table.setValueAt(null, i, j);
     }
 
 }

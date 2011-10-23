@@ -16,14 +16,13 @@ public class GuiConfig {
 
     public JTextField header;
 
-    public GuiConfig(JTable TSITable, JTable TKOTable, JTable AdditionalTable, JTable SourceTable, JTextArea FirstScanErrors, JTextArea SecondScanErrors, JTextField header, JTextArea objectModuleArea) {
+    public GuiConfig(JTable TSITable, JTable TKOTable, JTable AdditionalTable, JTable SourceTable, JTextArea FirstScanErrors, JTextArea SecondScanErrors,  JTextArea objectModuleArea) {
         this.TSITable = TSITable;
         this.TKOTable = TKOTable;
         this.AdditionalTable = AdditionalTable;
         this.SourceTable = SourceTable;
         this.firstScanErrors = FirstScanErrors;
         this.secondScanErrors = SecondScanErrors;
-        this.header = header;
         this.ObjectModuleArea=objectModuleArea;
     }
 
