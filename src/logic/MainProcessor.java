@@ -164,7 +164,7 @@ public class MainProcessor {
     private int getOperandSize(int i){
         String str = (String)guiConfig.SourceTable.getValueAt(i, 2);
         if(str!=null)
-            if(str.startsWith("\'"))
+            if(str.trim().startsWith("\'") && str.trim().endsWith("\'") )
                 //return str.length()-2;
                 return 0;               
             else
@@ -191,7 +191,7 @@ public class MainProcessor {
 
     private int _getOperandSize(String str){
         if(str!=null){
-            if(str.startsWith("\'"))
+            if(str.trim().startsWith("\'") && str.trim().endsWith("\'") )
                 return str.length()-2;
             else
                 try {

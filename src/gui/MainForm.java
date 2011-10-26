@@ -457,6 +457,8 @@ public class MainForm extends javax.swing.JFrame {
         File in=fileChooser.getSelectedFile();
         if(in!=null)
             sourceLoader.load(in, jTable2, jTable1);
+
+        jButton2.setEnabled(false);
     }//GEN-LAST:event_openMenuItemActionPerformed
 
     private void aboutMenuItemActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_aboutMenuItemActionPerformed
