@@ -43,7 +43,7 @@ public class TSIManager {
             TSI.put(name, adr);
     }
 
-    public Integer getLabelsAdress(String lbl){
+    public Integer getLabelsAddress(String lbl){
         return TSI.get(lbl);
     }
 
