@@ -98,7 +98,7 @@ public class MainProcessor {
                         new String[]{(String)guiConfig.SourceTable.getValueAt(i, 2),
                             (String)guiConfig.SourceTable.getValueAt(i, 3)},
                             item.getSize()
-                            );
+                        );
 
                 additionalTable.add(ati);
 
@@ -150,7 +150,7 @@ public class MainProcessor {
     }
 
     private boolean incIp(int increment, boolean printErr){
-        if(ip+increment > 0xffffff){
+        if(ip + increment > 0xffffff){
             if(printErr)
                 print1stScanError("ip incrementing error!");
             return false;
@@ -244,12 +244,12 @@ public class MainProcessor {
             System.out.println("ip="+ip);
     }
 
-    void print1stScanError(String err){
+    private void print1stScanError(String err){
         guiConfig.firstScanErrors.setText(guiConfig.firstScanErrors.getText()+err+"\n");
         System.err.println(err);
     }
 
-    void print2ndScanError(String err){
+    private void print2ndScanError(String err){
         guiConfig.secondScanErrors.setText(guiConfig.secondScanErrors.getText()+err+"\n");
         System.err.println(err);
     }
@@ -295,7 +295,6 @@ public class MainProcessor {
 
     private int checkCommandOperandsAndGetCode(int binaryCode, int i) {
         String op1 = (String)guiConfig.SourceTable.getValueAt(i, 2);
-       // String op2 = (String)guiConfig.SourceTable.getValueAt(i, 3);
 
         int adresation=1, result;
         if(op1 != null){
@@ -311,7 +310,7 @@ public class MainProcessor {
         return result;
     }
 
-    public int checkRegister(String s){
+    private int checkRegister(String s){
         if(s.startsWith("R")){
             try {
                 int val= Integer.parseInt(s.substring(1));
@@ -390,7 +389,7 @@ public class MainProcessor {
 
 
 
-    private class Pair<A,B>{
+    public class Pair<A,B>{
         private A a;
         private B b;
         public Pair(A _a, B _b){ a=_a;  b=_b; }
@@ -508,7 +507,7 @@ public class MainProcessor {
         return result;
     }
 
-    public String getOperandsRealView(String s){
+    private String getOperandsRealView(String s){
         String res="";
         
         if(s.startsWith("'")){
