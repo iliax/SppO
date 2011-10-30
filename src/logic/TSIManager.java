@@ -44,7 +44,11 @@ public class TSIManager {
     }
 
     public Integer getLabelsAddress(String lbl){
-        return TSI.get(lbl);
+        Integer res = TSI.get(lbl);
+//        if(res == null && lbl.startsWith("[")){
+//            return TSI.get(lbl.substring(1, lbl.length()-1));
+//        }
+        return res;
     }
 
     public void showWithTable(JTable table){

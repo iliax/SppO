@@ -23,6 +23,8 @@ public class MainProcessor {
     private List<AdditionalTableItem> additionalTable=new ArrayList<AdditionalTableItem>();
     private int startAddress = 0;
 
+    private List<Integer> tuneTableList=new ArrayList<Integer>();
+
     public MainProcessor(GuiConfig gc) {
         guiConfig=gc;
 
@@ -33,11 +35,14 @@ public class MainProcessor {
     public void processSecondScan(){
         guiConfig.ObjectModuleArea.setText("");
         guiConfig.secondScanErrors.setText("");
+        guiConfig.tuneTable.setText("");
 
         showHeader();
 
         for(int i=0; i<additionalTable.size(); i++)
             processAdditionalTableItem(i);
+
+        showModificators();
 
         showEnding();
         
@@ -70,9 +75,10 @@ public class MainProcessor {
         tKOManager.reloadTKO();
         guiConfig.firstScanErrors.setText("");
         tSIManager.clear();
+        guiConfig.tuneTable.setText("");
         Main.clearJTable(guiConfig.AdditionalTable);
 
-        getProgramStartAddress();
+        //getProgramStartAddress();         //not required now
 
         for(int i=1; guiConfig.SourceTable.getValueAt(i, 1)!=null && !((String)guiConfig.SourceTable.getValueAt(i, 1)).equalsIgnoreCase("END"); i++){
 
@@ -352,14 +358,34 @@ public class MainProcessor {
         return null;
     }
 
+    private void addLabelToTuneTable( int address){
+        tuneTableList.add(address);
+        guiConfig.tuneTable.setText(guiConfig.tuneTable.getText()+toHexStr(address)+"\n");
+    }
+
+    private int checkOperandForSlimAddresation(String s){
+        if(s.startsWith("[") && s.endsWith("]")){
+            Integer res= tSIManager.getLabelsAddress(s.substring(1, s.length()-1));
+            if(res!=null)
+                return res;
+            else
+                return -1;
+        }
+        return -1;
+    }
+
     private boolean checkOperandsValidity(AdditionalTableItem ati) {
         if(ati.tkoOperationSize > 1){
             if(ati.tkoOperationSize == 4){  //должна быть 1 метка
                 if(ati.operands.length >=2 && ati.operands[0]!=null  && !ati.operands[0].trim().isEmpty()){
                     if(tSIManager.getLabelsAddress(ati.operands[0]) != null){
+                        addLabelToTuneTable(ati.address);
                         return true;
                     } else {
-                        print2ndScanError("unregitered label! " + ati.operands[0]);
+                        if( checkOperandForSlimAddresation(ati.operands[0]) >= 0){
+                            return true;
+                        }
+                        print2ndScanError("->unregitered label! " + ati.operands[0]);
                         return false;
                     }
                 }
@@ -380,11 +406,34 @@ public class MainProcessor {
                 }
             }
 
+            if(ati.tkoOperationSize == 5){                  //reg + lbl
+                if(ati.operands.length >= 2 && ati.operands[0]!=null && ati.operands[1]!=null
+                        && !ati.operands[0].trim().isEmpty()
+                        && !ati.operands[1].trim().isEmpty())
+                {
+                    if(checkRegister(ati.operands[0]) > 0 || checkRegister(ati.operands[1]) > 0){
+                        if(tSIManager.getLabelsAddress(ati.operands[0])!=null || tSIManager.getLabelsAddress(ati.operands[1])!=null){
+                            addLabelToTuneTable(ati.address);
+                            return true;
+                        } else      // label in [ ] 
+                            if(checkOperandForSlimAddresation(ati.operands[0])>=0 || checkOperandForSlimAddresation(ati.operands[1])>=0){
+                                return true;
+                            }
+                    }
+                }
+            }
+
             print2ndScanError("not valid operands! "+toHexStr(ati.getAddress()));
             return false;
         }
         else
             return true;
+    }
+
+    private void showModificators() {
+        for(Integer i: tuneTableList){
+            guiConfig.ObjectModuleArea.setText(guiConfig.ObjectModuleArea.getText()+"M  "+toHexStr(i)+"\n");
+        }
     }
 
 
@@ -460,7 +509,7 @@ public class MainProcessor {
                 if(ati.getTkoOperationSize() != 1){   //if size=1 -> no operands
                     if(checkOperandsValidity(ati)){
                         try {
-                            body+= "  "+getOperandsInRightWay(ati.operands);
+                            body+= "  "+getOperandsInRightWay(ati.operands, ati.address);
                         } catch(IllegalArgumentException e){
                             body="";
                             print2ndScanError(e.getMessage());
@@ -476,7 +525,7 @@ public class MainProcessor {
         guiConfig.ObjectModuleArea.setText(guiConfig.ObjectModuleArea.getText()+body);
     }
 
-    private String getOperandsInRightWay(String strs[]){
+    private String getOperandsInRightWay(String strs[], int atiAddress){
         if(strs == null || (strs.length==0))
             return "";
 
@@ -493,12 +542,18 @@ public class MainProcessor {
 //                    else                     //maybe label?
                         if(tSIManager.getLabelsAddress(s) != null){
                             result+=toHexStr(tSIManager.getLabelsAddress(s))+" ";
+                            
                         } else {                                         //number or unregistered label
 //                                String test= toHexStr(s);
 //                                if(test!=null)
 //                                    result+=test;
 //                                else
-                                    throw new IllegalArgumentException("unregistered label " + s+"");
+                            
+                            if(checkOperandForSlimAddresation(s) >=0 ){
+                                result+=toHexStr((checkOperandForSlimAddresation(s)-atiAddress))+" ";
+                            }
+                            else
+                                throw new IllegalArgumentException("unregistered label " + s+"");
                         }
                     
                 }
@@ -509,7 +564,7 @@ public class MainProcessor {
 
     private String getOperandsRealView(String s){
         String res="";
-        
+             
         if(s.startsWith("'")){
             for(int i=1, t; i<s.length()-1; i++ ){
                 t=s.charAt(i);
