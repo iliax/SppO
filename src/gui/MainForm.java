@@ -291,7 +291,7 @@ public class MainForm extends javax.swing.JFrame {
         jTextArea3.setRows(5);
         jScrollPane7.setViewportView(jTextArea3);
 
-        jTextArea1.setColumns(20);
+        jTextArea1.setColumns(8);
         jTextArea1.setRows(5);
         jScrollPane5.setViewportView(jTextArea1);
 

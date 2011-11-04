@@ -119,15 +119,15 @@ public class MainProcessor {
     private void processDirective(int i){
         Pair<Integer, Boolean>  inf
                 = isDirective((String)guiConfig.SourceTable.getValueAt(i, 1));
-        if(inf.get2() == true) {
+        if(inf.get2() == true) {        //word / byte
             AdditionalTableItem ati=new AdditionalTableItem(ip, -1,
                     new String[]{(String )guiConfig.SourceTable.getValueAt(i, 1),
                         (String)guiConfig.SourceTable.getValueAt(i, 2)});
 
             additionalTable.add(ati);
-            incIp(inf.get1() * getOperandSize2(i), true);
+            incIp(inf.get1() * getOperandSize2(i, (String )guiConfig.SourceTable.getValueAt(i, 1)), true);
             
-        } else {
+        } else {        //resb /resw
             
            AdditionalTableItem ati=new AdditionalTableItem(ip, -2,
                     new String[]{(String )guiConfig.SourceTable.getValueAt(i, 1),
@@ -185,9 +185,9 @@ public class MainProcessor {
         return 0;
     }
 
-    private int getOperandSize2(int i){         // for WORD and BYTE
+    private int getOperandSize2(int i, String dir){         // for WORD and BYTE
         String str = (String)guiConfig.SourceTable.getValueAt(i, 2);
-        int res= _getOperandSize(str);
+        int res= _getOperandSize(str, dir);
         if(res!= -1)
             return res;
         else
@@ -195,16 +195,20 @@ public class MainProcessor {
         return 0;
     }
 
-    private int _getOperandSize(String str){
+    private int _getOperandSize(String str, String dirType){
         if(str!=null){
             if(str.trim().startsWith("\'") && str.trim().endsWith("\'") )
                 return str.length()-2;
             else
                 try {
                     int op = Integer.parseInt(str);
+                    if(dirType.equals("WORD") && (op > 127 || op < -128))
+                       throw new RuntimeException("to big value");
+                    if(dirType.equals("BYTE") && (op > 2047 || op < -2048))
+                        throw new RuntimeException("too big val");
                     return 1;
                 } catch(Exception e){
-                    print1stScanError("operand parsing error! "+str);
+                    print1stScanError("operand parsing error! "+dirType+" ->"+str);
                     return 0;
                 }
         }
@@ -494,9 +498,9 @@ public class MainProcessor {
         
         if(ati.getOperationCode() == -1){       //byte or word
             if(ati.operands[0].equalsIgnoreCase("BYTE"))
-                body+= Integer.toHexString(_getOperandSize(ati.operands[1])*2)+"  ";
+                body+= Integer.toHexString(_getOperandSize(ati.operands[1],ati.getOpers()[0])*2)+"  ";
             else
-                body+= Integer.toHexString(_getOperandSize(ati.operands[1])*6)+"  ";
+                body+= Integer.toHexString(_getOperandSize(ati.operands[1], ati.getOpers()[0])*6)+"  ";
 
             body+=" "+getOperandsRealView(ati.operands[1])+" ";
 
@@ -509,7 +513,7 @@ public class MainProcessor {
                 if(ati.getTkoOperationSize() != 1){   //if size=1 -> no operands
                     if(checkOperandsValidity(ati)){
                         try {
-                            body+= "  "+getOperandsInRightWay(ati.operands, ati.address);
+                            body+= "  "+getOperandsInRightWay(ati.operands,  index);
                         } catch(IllegalArgumentException e){
                             body="";
                             print2ndScanError(e.getMessage());
@@ -525,7 +529,7 @@ public class MainProcessor {
         guiConfig.ObjectModuleArea.setText(guiConfig.ObjectModuleArea.getText()+body);
     }
 
-    private String getOperandsInRightWay(String strs[], int atiAddress){
+    private String getOperandsInRightWay(String strs[], int atiIndex){
         if(strs == null || (strs.length==0))
             return "";
 
@@ -549,8 +553,11 @@ public class MainProcessor {
 //                                    result+=test;
 //                                else
                             
-                            if(checkOperandForSlimAddresation(s) >=0 ){
-                                result+=toHexStr((checkOperandForSlimAddresation(s)-atiAddress))+" ";
+                            if(checkOperandForSlimAddresation(s) >= 0 ){
+                                if(atiIndex < additionalTable.size())
+                                    result+=toHexStr(checkOperandForSlimAddresation(s)-additionalTable.get(atiIndex+1).getAddress())+" ";
+                                else
+                                    result+=toHexStr(checkOperandForSlimAddresation(s)-additionalTable.get(atiIndex).getAddress())+" ";
                             }
                             else
                                 throw new IllegalArgumentException("unregistered label " + s+"");
@@ -561,6 +568,7 @@ public class MainProcessor {
         }
         return result;
     }
+
 
     private String getOperandsRealView(String s){
         String res="";
