@@ -2,7 +2,6 @@ package logic;
 
 import java.util.*;
 import java.util.regex.Pattern;
-import javax.swing.*;
 import logic.TKOManager.TKOItem;
 import sppo.Main;
 
@@ -24,6 +23,7 @@ public class MainProcessor {
     private int startAddress = 0;
 
     private List<Integer> tuneTableList=new ArrayList<Integer>();
+    private Map<String,Integer> TVS = new HashMap<String, Integer>(); //табла внешних ссылок
 
     public MainProcessor(GuiConfig gc) {
         guiConfig=gc;
@@ -50,21 +50,22 @@ public class MainProcessor {
 
     private void showHeader(){
         String header="H  ";
-//        String progName, startAdr;
-//        progName=(String)guiConfig.SourceTable.getValueAt(0, 0);
-//        if(progName == null)
-//            header+="MissingProgName ";
-//        else
-//            header += (progName +" ");
-//        startAdr=(String)guiConfig.SourceTable.getValueAt(0, 2);
-//        if(startAdr == null)
-//            header+="000000h ";
-//        else
-            header += toHexStr(startAddress).toString()+ "h ";
-
+        header += toHexStr(startAddress).toString()+ "h ";
         header += Integer.toHexString(programSize) + "h\n";
 
-        guiConfig.ObjectModuleArea.setText(header);
+        String D="D ";
+        for(String lbl: tSIManager.getLabelsSet())
+            if(tSIManager.isLblExternal(lbl))
+                D+=lbl+" "+toHexStr(tSIManager.getLabelsAddress(lbl))+"  ";
+        D+="\n";
+
+        String R="R ";
+        for(String lbl: TVS.keySet()){
+            R+=lbl+" ";
+        }
+
+
+        guiConfig.ObjectModuleArea.setText(header+D+R+"\n");
     }
 
     private void showEnding() {
@@ -76,6 +77,7 @@ public class MainProcessor {
         guiConfig.firstScanErrors.setText("");
         tSIManager.clear();
         guiConfig.tuneTable.setText("");
+        guiConfig.TVSTable.setText("");
         Main.clearJTable(guiConfig.AdditionalTable);
 
         //getProgramStartAddress();         //not required now
@@ -89,11 +91,25 @@ public class MainProcessor {
         }
 
         showAdditionalTable();
+        showExternalLinks();
+
+        checkEXTDEFlinksInitialization();
 
         programSize = ip - startAddress;
     }
 
+    private void checkEXTDEFlinksInitialization(){
+        for(String lbl: tSIManager.getLabelsSet())
+            if(tSIManager.getLabelsAddress(lbl)==-1)
+                print1stScanError(lbl+" was not initialized");
+    }
+
     private void processOperation(int i){
+        if(isEXTDirective((String)guiConfig.SourceTable.getValueAt(i, 1))){
+            processEXTDirective(i);
+            return;
+        }
+        
         if(isDirective((String)guiConfig.SourceTable.getValueAt(i, 1)) != null){
             processDirective(i);
         }   else {
@@ -220,7 +236,19 @@ public class MainProcessor {
         if(lbl != null && !lbl.isEmpty())
             try {
                     if(Pattern.compile("^[A-Z_a-z]+([A-Za-z0-9_]){0,15}$").matcher(lbl).matches() && checkRegister(lbl) == 0){
-                        tSIManager.addToTSI(lbl, ip);
+                        if(TVS.get(lbl)!=null)
+                            print1stScanError("label "+lbl+" was defined as external!");
+                        else {
+                            if(tSIManager.getLabelsAddress(lbl) == null){
+                                tSIManager.addToTSI(lbl, ip);
+                            } else {
+                                if(tSIManager.getLabelsAddress(lbl) == -1)
+                                    tSIManager.addAddressToLbl(lbl,ip);
+                                else
+                                    print1stScanError("address for "+lbl+" already set! str "+i);
+                            }
+                        }
+
                         System.out.println("lbl added!");
                     } else {
                         print1stScanError("error lbl definition- "+lbl);
@@ -277,6 +305,12 @@ public class MainProcessor {
             return new Pair<Integer, Boolean>(3, true);
         else
             return null;
+    }
+
+    private void showExternalLinks(){
+        for(String lnk: TVS.keySet()){
+            guiConfig.TVSTable.setText(guiConfig.TVSTable.getText()+lnk+"\n");
+        }
     }
 
     private void showAdditionalTable() {
@@ -367,6 +401,15 @@ public class MainProcessor {
         guiConfig.tuneTable.setText(guiConfig.tuneTable.getText()+toHexStr(address)+"\n");
     }
 
+    private void addExterLabelToTuneTable(int addr, String lbl){
+        tuneTableList.add(addr);
+
+        TVS.remove(lbl);
+        TVS.put(lbl, 0);
+
+        guiConfig.tuneTable.setText(guiConfig.tuneTable.getText()+toHexStr(addr)+" "+lbl+"\n");
+    }
+
     private int checkOperandForSlimAddresation(String s){
         if(s.startsWith("[") && s.endsWith("]")){
             Integer res= tSIManager.getLabelsAddress(s.substring(1, s.length()-1));
@@ -386,6 +429,11 @@ public class MainProcessor {
                         addLabelToTuneTable(ati.address);
                         return true;
                     } else {
+                        if(TVS.containsKey(ati.operands[0])){
+                            addExterLabelToTuneTable(ati.address,ati.operands[0]);
+                            return true;
+                        }
+
                         if( checkOperandForSlimAddresation(ati.operands[0]) >= 0){
                             return true;
                         }
@@ -419,10 +467,19 @@ public class MainProcessor {
                         if(tSIManager.getLabelsAddress(ati.operands[0])!=null || tSIManager.getLabelsAddress(ati.operands[1])!=null){
                             addLabelToTuneTable(ati.address);
                             return true;
-                        } else      // label in [ ] 
+                        } else {
+                            if(TVS.containsKey(ati.operands[0]) || TVS.containsKey(ati.operands[1])){
+                                if(TVS.containsKey(ati.operands[0]))
+                                    addExterLabelToTuneTable(ati.address, ati.operands[0]);
+                                else
+                                    addExterLabelToTuneTable(ati.address, ati.operands[1]);
+                                return true;
+                            }
+
                             if(checkOperandForSlimAddresation(ati.operands[0])>=0 || checkOperandForSlimAddresation(ati.operands[1])>=0){
                                 return true;
                             }
+                        }
                     }
                 }
             }
@@ -438,6 +495,39 @@ public class MainProcessor {
         for(Integer i: tuneTableList){
             guiConfig.ObjectModuleArea.setText(guiConfig.ObjectModuleArea.getText()+"M  "+toHexStr(i)+"\n");
         }
+    }
+
+    private boolean isEXTDirective(String str) {
+       if(str==null || str.isEmpty())
+           return false;
+       if(str.toUpperCase().equals("EXTREF") || str.toUpperCase().equals("EXTDEF"))
+           return true;
+       return false;
+    }
+
+    private void processEXTDirective(int i) {
+        String str = (String)guiConfig.SourceTable.getValueAt(i, 1);
+
+        if(str.toUpperCase().equals("EXTDEF"))
+            processEXTDEF(i);
+        else
+            processEXTREF(i);
+    }
+
+    private void processEXTDEF(int i) {
+        String lbl=(String)guiConfig.SourceTable.getValueAt(i, 2);
+        if(lbl!=null && !lbl.isEmpty()){
+            tSIManager.addToTSI(lbl.trim(), -1, true);
+        } else
+            print1stScanError("wrong param for EXTDEF! str "+i);
+    }
+
+    private void processEXTREF(int i) {
+        String lbl=(String)guiConfig.SourceTable.getValueAt(i, 2);
+        if(lbl!=null && !lbl.isEmpty()){
+            TVS.put(lbl,-1);
+        } else
+            print1stScanError("wrong param for EXTREF! str "+i);
     }
 
 
@@ -555,12 +645,19 @@ public class MainProcessor {
                             
                             if(checkOperandForSlimAddresation(s) >= 0 ){
                                 if(atiIndex < additionalTable.size())
-                                    result+=toHexStr(checkOperandForSlimAddresation(s)-additionalTable.get(atiIndex+1).getAddress())+" ";
+                                    try{
+                                        result+=toHexStr(checkOperandForSlimAddresation(s)-additionalTable.get(atiIndex+1).getAddress())+" ";
+                                    } catch(Exception ex){
+                                        result+=toHexStr(checkOperandForSlimAddresation(s)-programSize)+" ";
+                                    }
                                 else
                                     result+=toHexStr(checkOperandForSlimAddresation(s)-additionalTable.get(atiIndex).getAddress())+" ";
                             }
                             else
-                                throw new IllegalArgumentException("unregistered label " + s+"");
+                                if(TVS.containsKey(s))
+                                    result+=toHexStr(TVS.get(s));
+                                else
+                                    throw new IllegalArgumentException("unregistered label " + s+"");
                         }
                     
                 }
