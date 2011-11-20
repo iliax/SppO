@@ -30,42 +30,6 @@ public class MainProcessor {
         tSIManager=new TSIManager(guiConfig.TSITable);
     }
 
-    public void processSecondScan(){
-        guiConfig.ObjectModuleArea.setText("");
-        guiConfig.secondScanErrors.setText("");
-
-        showHeader();
-
-        for(int i=0; i<additionalTable.size(); i++)
-            processAdditionalTableItem(i);
-
-        showEnding();
-        
-    }
-
-    private void showHeader(){
-        String header="H  ";
-//        String progName, startAdr;
-//        progName=(String)guiConfig.SourceTable.getValueAt(0, 0);
-//        if(progName == null)
-//            header+="MissingProgName ";
-//        else
-//            header += (progName +" ");
-//        startAdr=(String)guiConfig.SourceTable.getValueAt(0, 2);
-//        if(startAdr == null)
-//            header+="000000h ";
-//        else
-            header += toHexStr(startAddress).toString()+ "h ";
-
-        header += Integer.toHexString(programSize) + "h\n";
-
-        guiConfig.ObjectModuleArea.setText(header);
-    }
-
-    private void showEnding() {
-        guiConfig.ObjectModuleArea.setText(guiConfig.ObjectModuleArea.getText()+"E  "+toHexStr(startAddress) + "h");
-    }
-
     public void processFirstScan() {
         tKOManager.reloadTKO();
         guiConfig.firstScanErrors.setText("");
@@ -86,6 +50,48 @@ public class MainProcessor {
 
         programSize = ip - startAddress;
     }
+
+    public void processSecondScan(){
+        guiConfig.ObjectModuleArea.setText("");
+        guiConfig.secondScanErrors.setText("");
+
+        showHeader();
+
+        for(int i=0; i<additionalTable.size(); i++)
+            processAdditionalTableItem(i);
+
+        showEnding();
+        
+    }
+
+    public void processUniversalScan(){
+        
+    }
+
+    private void showHeader(){
+        String header="H  ";
+        String progName, startAdr;
+        progName=(String)guiConfig.SourceTable.getValueAt(0, 0);
+        if(progName == null)
+            header+="MissingProgName ";
+        else
+            header += (progName +" ");
+        startAdr=(String)guiConfig.SourceTable.getValueAt(0, 2);
+        if(startAdr == null)
+            header+="000000h ";
+        else
+            header += toHexStr(startAddress).toString()+ "h ";
+
+        header += Integer.toHexString(programSize) + "h\n";
+
+        guiConfig.ObjectModuleArea.setText(header);
+    }
+
+    private void showEnding() {
+        guiConfig.ObjectModuleArea.setText(guiConfig.ObjectModuleArea.getText()+"E  "+toHexStr(startAddress) + "h");
+    }
+
+
 
     private void processOperation(int i){
         if(isDirective((String)guiConfig.SourceTable.getValueAt(i, 1)) != null){
@@ -250,7 +256,8 @@ public class MainProcessor {
     }
 
     private void print2ndScanError(String err){
-        guiConfig.secondScanErrors.setText(guiConfig.secondScanErrors.getText()+err+"\n");
+        //guiConfig.secondScanErrors.setText(guiConfig.secondScanErrors.getText()+err+"\n");
+        guiConfig.firstScanErrors.setText(guiConfig.firstScanErrors.getText()+err+"\n");
         System.err.println(err);
     }
 
@@ -380,6 +387,21 @@ public class MainProcessor {
                 }
             }
 
+            if(ati.tkoOperationSize == 5){                  //reg + lbl
+                if(ati.operands.length >= 2 && ati.operands[0]!=null && ati.operands[1]!=null
+                        && !ati.operands[0].trim().isEmpty()
+                        && !ati.operands[1].trim().isEmpty())
+                {
+                    if(checkRegister(ati.operands[0]) > 0 || checkRegister(ati.operands[1]) > 0){
+                        if(tSIManager.getLabelsAddress(ati.operands[0])!=null || tSIManager.getLabelsAddress(ati.operands[1])!=null){
+                           // addLabelToTuneTable(ati.address);
+                            return true;
+                        } else      // label in [ ]
+                            ;
+                    }
+                }
+            }
+
             print2ndScanError("not valid operands! "+toHexStr(ati.getAddress()));
             return false;
         }
@@ -389,7 +411,7 @@ public class MainProcessor {
 
 
 
-    public class Pair<A,B>{
+    public class Pair<A,B> {
         private A a;
         private B b;
         public Pair(A _a, B _b){ a=_a;  b=_b; }
