@@ -3,6 +3,7 @@ package logic;
 import java.util.*;
 import java.util.regex.Pattern;
 import logic.TKOManager.TKOItem;
+import logic.TSIManager.RepeatedLabelException;
 import sppo.Main;
 
 /**
@@ -218,9 +219,9 @@ public class MainProcessor {
             else
                 try {
                     int op = Integer.parseInt(str);
-                    if(dirType.equals("WORD") && (op > 127 || op < -128))
+                    if(dirType.equals("WORD") && (op > 0xffffff-1 || op < -0xffffff))
                        throw new RuntimeException("to big value");
-                    if(dirType.equals("BYTE") && (op > 2047 || op < -2048))
+                    if(dirType.equals("BYTE") && (op > 127 || op < -128))
                         throw new RuntimeException("too big val");
                     return 1;
                 } catch(Exception e){
@@ -517,7 +518,14 @@ public class MainProcessor {
     private void processEXTDEF(int i) {
         String lbl=(String)guiConfig.SourceTable.getValueAt(i, 2);
         if(lbl!=null && !lbl.isEmpty()){
-            tSIManager.addToTSI(lbl.trim(), -1, true);
+            try{
+                if(Pattern.compile("^[A-Z_a-z]+([A-Za-z0-9_]){0,15}$").matcher(lbl).matches() && checkRegister(lbl) == 0)
+                    tSIManager.addToTSI(lbl.trim(), -1, true);
+                else
+                    print1stScanError("wrong lbl format! str "+i);
+            } catch(RepeatedLabelException e){
+                print1stScanError("label was already defined!");
+            }
         } else
             print1stScanError("wrong param for EXTDEF! str "+i);
     }
@@ -525,7 +533,15 @@ public class MainProcessor {
     private void processEXTREF(int i) {
         String lbl=(String)guiConfig.SourceTable.getValueAt(i, 2);
         if(lbl!=null && !lbl.isEmpty()){
-            TVS.put(lbl,-1);
+                if(Pattern.compile("^[A-Z_a-z]+([A-Za-z0-9_]){0,15}$").matcher(lbl).matches() && checkRegister(lbl) == 0){
+                    if(TVS.get(lbl)!=null || tSIManager.getLabelsAddress(lbl)!=null)
+                        print1stScanError("lbl already defined!");
+                    else
+                        TVS.put(lbl,-1);
+                    
+                } else
+                    print1stScanError("wrong lbl format!");
+            
         } else
             print1stScanError("wrong param for EXTREF! str "+i);
     }
@@ -651,7 +667,7 @@ public class MainProcessor {
                                         result+=toHexStr(checkOperandForSlimAddresation(s)-programSize)+" ";
                                     }
                                 else
-                                    result+=toHexStr(checkOperandForSlimAddresation(s)-additionalTable.get(atiIndex).getAddress())+" ";
+                                    result+=toHexStr(checkOperandForSlimAddresation(s)-programSize)+" ";
                             }
                             else
                                 if(TVS.containsKey(s))

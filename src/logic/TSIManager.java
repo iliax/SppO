@@ -1,5 +1,6 @@
 package logic;
 
+import com.sun.java_cup.internal.runtime.Symbol;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -40,8 +41,19 @@ public class TSIManager {
     }
 
     public void addToTSI(String name, Integer adr, boolean bool) throws RepeatedLabelException{
-        if(TSI.get(name)!=null)
+        if(bool==true && TSI.get(name)!=null){
+            if(TSI_bools.get(name) == false){
+                TSI_bools.remove(name);
+                TSI_bools.put(name, true);
+            } else {
+                throw new RepeatedLabelException();
+            }
+            return;
+        }
+
+        if(TSI.get(name)!=null){
             throw new RepeatedLabelException();
+        }
         else {
             TSI.put(name, adr);
             TSI_bools.put(name, bool);
