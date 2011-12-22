@@ -14,6 +14,9 @@ package gui;
 import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
 import javax.swing.filechooser.FileFilter;
@@ -74,13 +77,15 @@ public class MainForm extends javax.swing.JFrame {
         jTextArea4 = new javax.swing.JTextArea();
         jPanel3 = new javax.swing.JPanel();
         jLabel7 = new javax.swing.JLabel();
-        jLabel8 = new javax.swing.JLabel();
         jScrollPane6 = new javax.swing.JScrollPane();
         jTextArea2 = new javax.swing.JTextArea();
         jScrollPane7 = new javax.swing.JScrollPane();
         jTextArea3 = new javax.swing.JTextArea();
         jButton1 = new javax.swing.JButton();
         jButton2 = new javax.swing.JButton();
+        scanButton = new javax.swing.JButton();
+        nextStep = new javax.swing.JButton();
+        scanByStemButton = new javax.swing.JButton();
         menuBar = new javax.swing.JMenuBar();
         fileMenu = new javax.swing.JMenu();
         openMenuItem = new javax.swing.JMenuItem();
@@ -183,7 +188,7 @@ public class MainForm extends javax.swing.JFrame {
 
         jLabel4.setText("ТСИ");
 
-        jLabel5.setText("Ошибки 1го прохода");
+        jLabel5.setText("Ошибки :");
 
         jTable3.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
@@ -281,8 +286,6 @@ public class MainForm extends javax.swing.JFrame {
 
         jLabel7.setText("OM");
 
-        jLabel8.setText("Ошибки 2го прохода");
-
         jTextArea2.setColumns(20);
         jTextArea2.setRows(5);
         jScrollPane6.setViewportView(jTextArea2);
@@ -299,26 +302,20 @@ public class MainForm extends javax.swing.JFrame {
                 .addGap(109, 109, 109)
                 .addComponent(jLabel7)
                 .addContainerGap(177, Short.MAX_VALUE))
+            .addComponent(jScrollPane6, javax.swing.GroupLayout.DEFAULT_SIZE, 305, Short.MAX_VALUE)
             .addGroup(jPanel3Layout.createSequentialGroup()
                 .addContainerGap()
                 .addComponent(jScrollPane7, javax.swing.GroupLayout.DEFAULT_SIZE, 281, Short.MAX_VALUE)
                 .addContainerGap())
-            .addGroup(jPanel3Layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(jLabel8)
-                .addContainerGap(156, Short.MAX_VALUE))
-            .addComponent(jScrollPane6, javax.swing.GroupLayout.DEFAULT_SIZE, 305, Short.MAX_VALUE)
         );
         jPanel3Layout.setVerticalGroup(
             jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel3Layout.createSequentialGroup()
                 .addComponent(jLabel7)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jScrollPane6, javax.swing.GroupLayout.DEFAULT_SIZE, 497, Short.MAX_VALUE)
+                .addComponent(jScrollPane6, javax.swing.GroupLayout.PREFERRED_SIZE, 377, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jLabel8)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jScrollPane7, javax.swing.GroupLayout.PREFERRED_SIZE, 113, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(jScrollPane7, javax.swing.GroupLayout.DEFAULT_SIZE, 254, Short.MAX_VALUE)
                 .addContainerGap())
         );
 
@@ -333,6 +330,28 @@ public class MainForm extends javax.swing.JFrame {
         jButton2.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 jButton2ActionPerformed(evt);
+            }
+        });
+
+        scanButton.setText("Проход");
+        scanButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                scanButtonActionPerformed(evt);
+            }
+        });
+
+        nextStep.setText("След шаг");
+        nextStep.setEnabled(false);
+        nextStep.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                nextStepActionPerformed(evt);
+            }
+        });
+
+        scanByStemButton.setText("По шагам");
+        scanByStemButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                scanByStemButtonActionPerformed(evt);
             }
         });
 
@@ -380,14 +399,20 @@ public class MainForm extends javax.swing.JFrame {
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                         .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(jPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(jPanel3, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addComponent(jPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                     .addGroup(layout.createSequentialGroup()
                         .addGap(6, 6, 6)
                         .addComponent(jButton1)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(jButton2)))
+                        .addComponent(jButton2)
+                        .addGap(18, 18, 18)
+                        .addComponent(scanButton)
+                        .addGap(46, 46, 46)
+                        .addComponent(scanByStemButton)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(nextStep)))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jPanel3, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap())
         );
         layout.setVerticalGroup(
@@ -401,7 +426,10 @@ public class MainForm extends javax.swing.JFrame {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jButton2)
-                    .addComponent(jButton1))
+                    .addComponent(jButton1)
+                    .addComponent(scanButton)
+                    .addComponent(nextStep)
+                    .addComponent(scanByStemButton))
                 .addContainerGap())
         );
 
@@ -419,7 +447,7 @@ public class MainForm extends javax.swing.JFrame {
         jTextArea2.setText("");
         jTextArea3.setText("");
 
-        mainProcessor=new MainProcessor(guiConfig);
+        mainProcessor=new MainProcessor(guiConfig, atomicBoolean);
         mainProcessor.processFirstScan();
 
         if(jTextArea4.getText()==null ||  jTextArea4.getText().trim().isEmpty()){
@@ -466,6 +494,68 @@ public class MainForm extends javax.swing.JFrame {
         // TODO add your handling code here:
     }//GEN-LAST:event_aboutMenuItemActionPerformed
 
+    Thread currentThread;
+
+    AtomicBoolean atomicBoolean = new AtomicBoolean(true);
+
+    private void scanButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_scanButtonActionPerformed
+
+        atomicBoolean.set(true);
+
+        if(currentThread!=null){
+           if(currentThread.isAlive())
+               currentThread.suspend();
+       }
+
+       mainProcessor=new MainProcessor(guiConfig, atomicBoolean);
+
+       currentThread= new Thread(mainProcessor);
+       currentThread.start();
+
+    }//GEN-LAST:event_scanButtonActionPerformed
+
+    private void scanByStemButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_scanByStemButtonActionPerformed
+
+       atomicBoolean.set(false);
+
+       nextStep.setEnabled(true);
+
+       if(currentThread!=null){
+           if(currentThread.isAlive())
+               currentThread.stop();
+       }
+
+       mainProcessor=new MainProcessor(guiConfig, atomicBoolean);
+
+       currentThread= new Thread(mainProcessor);
+       currentThread.start();
+
+       scanByStemButton.setEnabled(false);
+       scanButton.setEnabled(false);
+    }//GEN-LAST:event_scanByStemButtonActionPerformed
+
+    private void nextStepActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_nextStepActionPerformed
+
+        atomicBoolean.set(true);
+
+        synchronized(guiConfig){
+            guiConfig.notifyAll();
+        }
+        try {
+            
+            if(mainProcessor.programSize != -1){
+                Thread.sleep(300);
+                 if(mainProcessor.programSize != -1){
+                    scanByStemButton.setEnabled(true);
+                    scanButton.setEnabled(true);
+                    nextStep.setEnabled(false);
+                }
+            }
+        } catch (InterruptedException ex) {
+            Logger.getLogger(MainForm.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }//GEN-LAST:event_nextStepActionPerformed
+
     /**
     * @param args the command line arguments
     */
@@ -490,7 +580,6 @@ public class MainForm extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel4;
     private javax.swing.JLabel jLabel5;
     private javax.swing.JLabel jLabel7;
-    private javax.swing.JLabel jLabel8;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel2;
     private javax.swing.JPanel jPanel3;
@@ -509,7 +598,10 @@ public class MainForm extends javax.swing.JFrame {
     private javax.swing.JTextArea jTextArea3;
     private javax.swing.JTextArea jTextArea4;
     private javax.swing.JMenuBar menuBar;
+    private javax.swing.JButton nextStep;
     private javax.swing.JMenuItem openMenuItem;
+    private javax.swing.JButton scanButton;
+    private javax.swing.JButton scanByStemButton;
     // End of variables declaration//GEN-END:variables
 
 }

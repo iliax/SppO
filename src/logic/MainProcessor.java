@@ -1,16 +1,21 @@
 package logic;
 
 import java.util.*;
+import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import javax.swing.*;
 import logic.TKOManager.TKOItem;
 import sppo.Main;
+import sun.misc.Version;
 
 /**
  *
  * @author iliax
  */
-public class MainProcessor {
+public class MainProcessor  implements  Runnable{
     
     private TKOManager tKOManager;
     private TSIManager tSIManager;
@@ -18,16 +23,207 @@ public class MainProcessor {
     private GuiConfig guiConfig;
 
     private int ip=0;
-    private int programSize=0;
+    public volatile int programSize=-1;
 
     private List<AdditionalTableItem> additionalTable=new ArrayList<AdditionalTableItem>();
     private int startAddress = 0;
 
-    public MainProcessor(GuiConfig gc) {
+    public AtomicBoolean atomicBoolean=new AtomicBoolean(true);
+
+    Map<String , List<Integer>> labelNamesLists = new HashMap<String, List<Integer>>();
+    private boolean stepMode;
+
+    class ShowItem {
+        public List<String> items = new ArrayList<String>();
+
+        public void add(String str){
+            items.add(str);
+        }
+    }
+
+    List<ShowItem> showItems =new ArrayList<ShowItem>();
+
+    public MainProcessor(GuiConfig gc, AtomicBoolean ab) {
         guiConfig=gc;
+        atomicBoolean=ab;
+        if(atomicBoolean.get() == false)
+            stepMode=true;
 
         tKOManager=new TKOManager(guiConfig.TKOTable);
         tSIManager=new TSIManager(guiConfig.TSITable);
+    }
+
+
+    void doCleaningStaff(){
+        tKOManager.reloadTKO();
+        guiConfig.firstScanErrors.setText("");
+        tSIManager.clear();
+        Main.clearJTable(guiConfig.AdditionalTable);
+    }
+
+    @Override
+    public void run() {
+        processMainScan();
+    }
+
+    public void processMainScan(){
+        doCleaningStaff();
+        getProgramStartAddress();
+
+         for(int i=1; guiConfig.SourceTable.getValueAt(i, 1)!=null && !((String)guiConfig.SourceTable.getValueAt(i, 1)).equalsIgnoreCase("END"); i++){
+             processLabelField(i);
+
+             
+             ShowItem newShowItem = processOperation_(i);
+             
+             if(newShowItem != null)
+                 showItems.add(newShowItem);
+            
+
+             if(!guiConfig.firstScanErrors.getText().trim().isEmpty()){
+                     programSize=0;
+                     return;
+             }
+
+             showShowItems();
+
+             while(atomicBoolean.get()==false){
+                synchronized(guiConfig){
+                    try {
+                        guiConfig.wait();
+                    } catch (InterruptedException ex) {
+                        Logger.getLogger(MainProcessor.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                 }
+             }
+             if(stepMode)
+                atomicBoolean.set(false);
+
+         }
+        programSize = ip - startAddress;
+        showShowItems();
+    }
+
+    void showShowItems(){
+         guiConfig.ObjectModuleArea.setText("");
+
+         if(programSize != -1)
+            guiConfig.ObjectModuleArea.setText(guiConfig.ObjectModuleArea.getText()+showHeader());
+
+         for(ShowItem si: showItems){
+             guiConfig.ObjectModuleArea.setText(guiConfig.ObjectModuleArea.getText()+"T  ");
+             for(String s : si.items)
+                 guiConfig.ObjectModuleArea.setText(guiConfig.ObjectModuleArea.getText()+s+"  ");
+             guiConfig.ObjectModuleArea.setText(guiConfig.ObjectModuleArea.getText()+"\n");
+         }
+
+         if(programSize != -1)
+             showEnding();
+
+    }
+
+    private void processAdditionalTableItem(int index){
+        AdditionalTableItem ati=additionalTable.get(index);
+
+        String body="T  ";
+        body+=toHexStr(ati.address)+"   ";
+
+        if(ati.getOperationCode() == -1){       //byte or word
+            if(ati.operands[0].equalsIgnoreCase("BYTE"))
+                body+= Integer.toHexString(_getOperandSize(ati.operands[1])*2)+"  ";
+            else
+                body+= Integer.toHexString(_getOperandSize(ati.operands[1])*6)+"  ";
+
+            body+=" "+getOperandsRealView(ati.operands[1])+" ";
+
+        } else
+            if(ati.getOperationCode() == -2){    //resb or resw
+                ;
+            } else {                                    //operation
+                body+= Integer.toHexString( ati.getTkoOperationSize()*2) + "h ";
+                body+= Integer.toHexString(ati.getOperationCode()) + "h ";
+                if(ati.getTkoOperationSize() != 1){   //if size=1 -> no operands
+                    if(checkOperandsValidity(ati)){
+                        try {
+                            body+= "  "+getOperandsInRightWay(ati.operands);
+                        } catch(IllegalArgumentException e){
+                            body="";
+                            print2ndScanError(e.getMessage());
+                        }
+                    } else {
+                        body+= "invalid operands ";
+                    }
+                }
+            }
+
+        body+=" \n";
+
+        guiConfig.secondScanErrors.setText(guiConfig.secondScanErrors.getText()+body);
+    }
+
+    private void processLabelField(int i){
+        String lbl= (String)guiConfig.SourceTable.getValueAt(i, 0);
+        if(lbl != null && !lbl.isEmpty()){
+            
+                    if(Pattern.compile("^[A-Z_a-z]+([A-Za-z0-9_]){0,15}$").matcher(lbl).matches() && checkRegister(lbl) == 0){
+
+                        if(tSIManager.getLabelsAddress(lbl) == null){
+                            tSIManager.addToTSI(lbl, ip);
+                            return;
+                        }
+
+                        if(tSIManager.getLabelsAddress(lbl) != -1){
+                            print1stScanError("error was already defined!");
+                            return;
+                        }
+
+                        if(tSIManager.getLabelsAddress(lbl) == -1){     //есть но без адреса - есть вспом список
+                            tSIManager.addToTSI(lbl, ip);
+                            processLabelInjection(lbl, ip);
+                            labelNamesLists.remove(lbl);
+                        }
+                        
+                    } else {
+                        print1stScanError("error lbl definition- "+lbl);
+                    }      
+        }
+
+        tSIManager.repaintTSITable();       //////
+    }
+
+    void processLabelInjection(String lbl, int ip){
+        for(ShowItem si : showItems){
+            for(String s : si.items){
+                if(s.contains("*") && s.contains(lbl)){
+                    String replace = s.replace("*" + lbl + "*", ip + "");
+                    int ind = si.items.indexOf(s);
+                    si.items.remove(s);
+                    si.items.add(ind, toHexStr(replace));
+                }
+            }
+        }
+    }
+
+    private void getProgramStartAddress(){
+        String str = (String)guiConfig.SourceTable.getValueAt(0, 2);
+        if(str!=null)
+            try{
+                int tst= Integer.parseInt(str,16);
+                if(tst > 0 && tst < 0xffffff){
+                    ip=tst;
+                    startAddress=ip;
+                    System.out.println("ip="+ip);
+                } else {
+                    print1stScanError("invalid start address!!!");
+                    ip=0;
+                    startAddress=0;
+                }
+            } catch(Exception e){
+                print1stScanError("start address missed!");
+                ip=0;
+            }
+        else
+            System.out.println("ip="+ip);
     }
 
     public void processFirstScan() {
@@ -51,11 +247,13 @@ public class MainProcessor {
         programSize = ip - startAddress;
     }
 
+
+
     public void processSecondScan(){
         guiConfig.ObjectModuleArea.setText("");
-        guiConfig.secondScanErrors.setText("");
+        //guiConfig.secondScanErrors.setText("");
 
-        showHeader();
+        guiConfig.ObjectModuleArea.setText(guiConfig.ObjectModuleArea.getText()+showHeader());
 
         for(int i=0; i<additionalTable.size(); i++)
             processAdditionalTableItem(i);
@@ -64,11 +262,7 @@ public class MainProcessor {
         
     }
 
-    public void processUniversalScan(){
-        
-    }
-
-    private void showHeader(){
+    private String showHeader(){
         String header="H  ";
         String progName, startAdr;
         progName=(String)guiConfig.SourceTable.getValueAt(0, 0);
@@ -84,36 +278,117 @@ public class MainProcessor {
 
         header += Integer.toHexString(programSize) + "h\n";
 
-        guiConfig.ObjectModuleArea.setText(header);
+        return header;
     }
 
     private void showEnding() {
         guiConfig.ObjectModuleArea.setText(guiConfig.ObjectModuleArea.getText()+"E  "+toHexStr(startAddress) + "h");
     }
 
-
-
-    private void processOperation(int i){
+    private ShowItem processOperation_(int i){
         if(isDirective((String)guiConfig.SourceTable.getValueAt(i, 1)) != null){
-            processDirective(i);
-        }   else {
+            return processDirective_(i);
+
+        } else {
+
+            ShowItem newShowItem = new ShowItem();
+            newShowItem.add(toHexStr(ip));
+            
             TKOItem item = tKOManager.checkOperationCode((String)guiConfig.SourceTable.getValueAt(i, 1));
             if(item!=null){
-                AdditionalTableItem ati = new AdditionalTableItem(ip, 
+                
+                ///////////////////////////////
+                AdditionalTableItem ati = new AdditionalTableItem(ip,
                         checkCommandOperandsAndGetCode(item.getBinaryCode(), i),
                         new String[]{(String)guiConfig.SourceTable.getValueAt(i, 2),
                             (String)guiConfig.SourceTable.getValueAt(i, 3)},
                             item.getSize()
                         );
+                ////////////////////////////
 
-                additionalTable.add(ati);
+                newShowItem.add(Integer.toHexString(ati.getTkoOperationSize()*2)+"h");
+                newShowItem.add(Integer.toHexString(ati.getOperationCode()) + "h ");
 
+                if(item.getSize() != 1) {    //if size=1 -> no operands
+                    processShowItemOperands(newShowItem, ati);
+                }
+                
                 incIp(item.getSize(), true);
 
+                return newShowItem;
             } else {
                 print1stScanError("operation not defined! "+i);
+                return null;
             }
+                
+
         }
+
+        
+
+    }
+
+
+    
+    private ShowItem processDirective_(int i){
+        Pair<Integer, Boolean>  inf = isDirective((String)guiConfig.SourceTable.getValueAt(i, 1));
+
+        if(inf.get2() == true) { //byte or word
+
+            ShowItem newShowItem = new ShowItem();
+            newShowItem.add(toHexStr(ip));
+
+            //
+            if(inf.get1() == 1)   //byte
+                try {
+                    Integer val= Integer.parseInt((String)guiConfig.SourceTable.getValueAt(i, 2));
+                    if( val > 127 || val < -128 ){
+                        print1stScanError("not valid value for word directive! str "+i );
+                        return null;
+                    }
+                } catch(Exception e) {}
+            else            //word
+                try {
+                    Integer val= Integer.parseInt((String)guiConfig.SourceTable.getValueAt(i, 2));
+                    if( val > 0xffffff-1 || val < -0xffffff ){
+                        print1stScanError("not valid value for word directive! str "+i );
+                        return null;
+                    }
+                } catch(Exception e) {}
+            //
+
+            newShowItem.add(Integer.toHexString(inf.get1() * getOperandSize2(i) * 2));
+
+            newShowItem.add(getOperandsRealView((String)guiConfig.SourceTable.getValueAt(i, 2)));
+
+            incIp(inf.get1() * getOperandSize2(i), true);
+
+            return newShowItem;
+            
+        } else {        //RES
+
+            if(((String)guiConfig.SourceTable.getValueAt(i, 2)).startsWith("-")){
+                 print1stScanError("operand error! str "+i);
+                 return null;
+            }
+            ShowItem newShowItem = new ShowItem();
+            newShowItem.add(toHexStr(ip));
+
+            int ipp=(inf.get1() * getOperandSize(i));
+            if(ipp > 0){
+                if(ip+ipp > 0xffffff){
+                    print1stScanError("operand error! "+i+"->too big area to allocate");
+                    return null;
+                }
+                ip+=ipp;
+            } else {
+                print1stScanError("operand error! str "+i);
+                return null;
+            }
+
+            return newShowItem;
+        }
+        
     }
 
     private void processDirective(int i){
@@ -127,7 +402,7 @@ public class MainProcessor {
             additionalTable.add(ati);
             incIp(inf.get1() * getOperandSize2(i), true);
             
-        } else {
+        } else {        //res
             
            AdditionalTableItem ati=new AdditionalTableItem(ip, -2,
                     new String[]{(String )guiConfig.SourceTable.getValueAt(i, 1),
@@ -155,6 +430,29 @@ public class MainProcessor {
         }
     }
 
+    private void processOperation(int i){
+        if(isDirective((String)guiConfig.SourceTable.getValueAt(i, 1)) != null){
+            processDirective(i);
+        }   else {
+            TKOItem item = tKOManager.checkOperationCode((String)guiConfig.SourceTable.getValueAt(i, 1));
+            if(item!=null){
+                AdditionalTableItem ati = new AdditionalTableItem(ip,
+                        checkCommandOperandsAndGetCode(item.getBinaryCode(), i),
+                        new String[]{(String)guiConfig.SourceTable.getValueAt(i, 2),
+                            (String)guiConfig.SourceTable.getValueAt(i, 3)},
+                            item.getSize()
+                        );
+
+                additionalTable.add(ati);
+
+                incIp(item.getSize(), true);
+
+            } else {
+                print1stScanError("operation not defined! "+i);
+            }
+        }
+    }
+    
     private boolean incIp(int increment, boolean printErr){
         if(ip + increment > 0xffffff){
             if(printErr)
@@ -198,57 +496,22 @@ public class MainProcessor {
     private int _getOperandSize(String str){
         if(str!=null){
             if(str.trim().startsWith("\'") && str.trim().endsWith("\'") )
-                return str.length()-2;
+                return str.trim().length()-2;
             else
                 try {
                     int op = Integer.parseInt(str);
                     return 1;
                 } catch(Exception e){
                     print1stScanError("operand parsing error! "+str);
-                    return 0;
+                    return -1;
                 }
         }
         return -1;
     }
 
-    private void processLabelField(int i){
-        String lbl= (String)guiConfig.SourceTable.getValueAt(i, 0);
-        if(lbl != null && !lbl.isEmpty())
-            try {
-                    if(Pattern.compile("^[A-Z_a-z]+([A-Za-z0-9_]){0,15}$").matcher(lbl).matches() && checkRegister(lbl) == 0){
-                        tSIManager.addToTSI(lbl, ip);
-                        System.out.println("lbl added!");
-                    } else {
-                        print1stScanError("error lbl definition- "+lbl);
-                    }
-                } catch(Exception e){
-                    print1stScanError("repeated Label! "+lbl);
-                }
 
-        tSIManager.repaintTSITable();       //////
-    }
 
-    private void getProgramStartAddress(){
-        String str = (String)guiConfig.SourceTable.getValueAt(0, 2);
-        if(str!=null)
-            try{
-                int tst= Integer.parseInt(str,16);
-                if(tst > 0){
-                    ip=tst;
-                    startAddress=ip;
-                    System.out.println("ip="+ip);
-                } else {
-                    print1stScanError("invalid start address!!!");
-                    ip=0;
-                    startAddress=0;
-                }
-            } catch(Exception e){
-                print1stScanError("start address missed!");
-                ip=0;
-            }
-        else
-            System.out.println("ip="+ip);
-    }
+
 
     private void print1stScanError(String err){
         guiConfig.firstScanErrors.setText(guiConfig.firstScanErrors.getText()+err+"\n");
@@ -302,10 +565,13 @@ public class MainProcessor {
 
     private int checkCommandOperandsAndGetCode(int binaryCode, int i) {
         String op1 = (String)guiConfig.SourceTable.getValueAt(i, 2);
-
+        String op2 = (String)guiConfig.SourceTable.getValueAt(i, 3);
+        
         int adresation=1, result;
         if(op1 != null){
             if(checkRegister(op1) > 0)
+                adresation=0;
+            if(op2 != null && checkRegister(op2) > 0)
                 adresation=0;
         } else
             return binaryCode;
@@ -357,6 +623,84 @@ public class MainProcessor {
             }
         }
         return null;
+    }
+
+    public void doStuffWithLabel(String lbl, ShowItem showItem ){
+        if( ! ( Pattern.compile("^[A-Z_a-z]+([A-Za-z0-9_]){0,15}$").matcher(lbl).matches() && (checkRegister(lbl) == 0) ) ){
+            print1stScanError("this is gonna be label operand! ip "+toHexStr(ip));
+            return;
+        }
+
+
+                if(tSIManager.getLabelsAddress(lbl) != null ){     //поиск удачен
+                     if(tSIManager.getLabelsAddress(lbl) != -1){        //адрес есть
+                         showItem.add(toHexStr(tSIManager.getLabelsAddress(lbl)));
+                     } else {   //удачен и должен быть доп список
+                         if(labelNamesLists.containsKey(lbl)){
+                             showItem.add("*"+lbl+"*");
+                         }
+                     }
+                 } else {  //поиск неудачен
+                    tSIManager.addToTSI(lbl, -1);
+                    labelNamesLists.put(lbl, null);
+                    showItem.add("*"+lbl+"*");
+                 }
+    }
+
+
+    private void processShowItemOperands(ShowItem showItem, AdditionalTableItem ati){
+        if(ati.tkoOperationSize == 4){      //должна быть 1 метка
+             if(ati.operands.length >=2 && ati.operands[0]!=null  && !ati.operands[0].trim().isEmpty()){
+                 
+                doStuffWithLabel(ati.operands[0], showItem);
+                 
+             } else {
+                 print1stScanError("invalid operands for this operation size 4");
+             }
+        }
+
+        if(ati.tkoOperationSize == 2){          // 2 registers
+             if(ati.operands.length >=2 && ati.operands[0]!=null && ati.operands[1]!=null
+                        && !ati.operands[0].trim().isEmpty()
+                        && !ati.operands[1].trim().isEmpty())
+                {
+                    if((checkRegister(ati.operands[0]) > 0)  && (checkRegister(ati.operands[1]) > 0)){
+                        showItem.add(getOperandsInRightWay(ati.operands));
+                    }
+                    else {
+                        print2ndScanError("not valid operands! "+toHexStr(ati.getAddress()));
+                    }
+                } else {
+                    print1stScanError("invalid operands for this operation size 2");
+                }
+        }
+
+        if(ati.tkoOperationSize == 5){                  //reg + lbl
+                if(ati.operands.length >= 2 && ati.operands[0]!=null && ati.operands[1]!=null
+                        && !ati.operands[0].trim().isEmpty()
+                        && !ati.operands[1].trim().isEmpty())
+                {
+                    if(checkRegister(ati.operands[0].trim()) > 0 || checkRegister(ati.operands[1].trim()) > 0){
+                        if(checkRegister(ati.operands[0].trim()) > 0){
+                            showItem.add(checkRegister(ati.operands[0].trim())+"");
+                            doStuffWithLabel(ati.operands[1].trim(), showItem);
+                        } else {
+                            doStuffWithLabel(ati.operands[0].trim(), showItem);
+                            showItem.add(checkRegister(ati.operands[1].trim())+"");
+                        }
+
+
+                    } else {
+                        print2ndScanError("not valid operands! "+toHexStr(ati.getAddress())+" (should be lbl and register)");
+                    }
+                } else {
+                    print1stScanError("invalid operands for this operation size 5");
+                }
+            }
+
+        if(ati.tkoOperationSize == 3 || ati.tkoOperationSize > 5 || ati.tkoOperationSize < 1){
+            print1stScanError("invalid command size = "+ ati.getTkoOperationSize());
+        }
     }
 
     private boolean checkOperandsValidity(AdditionalTableItem ati) {
@@ -459,44 +803,7 @@ public class MainProcessor {
     }
 
 
-    private void processAdditionalTableItem(int index){
-        AdditionalTableItem ati=additionalTable.get(index);
 
-        String body="T  ";
-        body+=toHexStr(ati.address)+"   ";
-        
-        if(ati.getOperationCode() == -1){       //byte or word
-            if(ati.operands[0].equalsIgnoreCase("BYTE"))
-                body+= Integer.toHexString(_getOperandSize(ati.operands[1])*2)+"  ";
-            else
-                body+= Integer.toHexString(_getOperandSize(ati.operands[1])*6)+"  ";
-
-            body+=" "+getOperandsRealView(ati.operands[1])+" ";
-
-        } else
-            if(ati.getOperationCode() == -2){    //resb or resw
-                ;
-            } else {                                    //operation
-                body+= Integer.toHexString( ati.getTkoOperationSize()*2) + "h ";
-                body+= Integer.toHexString(ati.getOperationCode()) + "h ";
-                if(ati.getTkoOperationSize() != 1){   //if size=1 -> no operands
-                    if(checkOperandsValidity(ati)){
-                        try {
-                            body+= "  "+getOperandsInRightWay(ati.operands);
-                        } catch(IllegalArgumentException e){
-                            body="";
-                            print2ndScanError(e.getMessage());
-                        }
-                    } else {
-                        body+= "invalid operands ";
-                    }
-                }
-            }
-
-        body+=" \n";
-
-        guiConfig.ObjectModuleArea.setText(guiConfig.ObjectModuleArea.getText()+body);
-    }
 
     private String getOperandsInRightWay(String strs[]){
         if(strs == null || (strs.length==0))

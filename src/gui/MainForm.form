@@ -74,16 +74,22 @@
                       <Component id="jPanel1" max="32767" attributes="0"/>
                       <EmptySpace max="-2" attributes="0"/>
                       <Component id="jPanel2" min="-2" max="-2" attributes="0"/>
-                      <EmptySpace max="-2" attributes="0"/>
-                      <Component id="jPanel3" min="-2" max="-2" attributes="0"/>
                   </Group>
                   <Group type="102" alignment="0" attributes="0">
                       <EmptySpace min="6" pref="6" max="6" attributes="0"/>
                       <Component id="jButton1" min="-2" max="-2" attributes="0"/>
                       <EmptySpace max="-2" attributes="0"/>
                       <Component id="jButton2" min="-2" max="-2" attributes="0"/>
+                      <EmptySpace type="separate" max="-2" attributes="0"/>
+                      <Component id="scanButton" min="-2" max="-2" attributes="0"/>
+                      <EmptySpace min="-2" pref="46" max="-2" attributes="0"/>
+                      <Component id="scanByStemButton" min="-2" max="-2" attributes="0"/>
+                      <EmptySpace max="-2" attributes="0"/>
+                      <Component id="nextStep" min="-2" max="-2" attributes="0"/>
                   </Group>
               </Group>
+              <EmptySpace max="-2" attributes="0"/>
+              <Component id="jPanel3" min="-2" max="-2" attributes="0"/>
               <EmptySpace max="-2" attributes="0"/>
           </Group>
       </Group>
@@ -101,6 +107,9 @@
               <Group type="103" groupAlignment="3" attributes="0">
                   <Component id="jButton2" alignment="3" min="-2" max="-2" attributes="0"/>
                   <Component id="jButton1" alignment="3" min="-2" max="-2" attributes="0"/>
+                  <Component id="scanButton" alignment="3" min="-2" max="-2" attributes="0"/>
+                  <Component id="nextStep" alignment="3" min="-2" max="-2" attributes="0"/>
+                  <Component id="scanByStemButton" alignment="3" min="-2" max="-2" attributes="0"/>
               </Group>
               <EmptySpace min="-2" max="-2" attributes="0"/>
           </Group>
@@ -284,7 +293,7 @@
         </Component>
         <Component class="javax.swing.JLabel" name="jLabel5">
           <Properties>
-            <Property name="text" type="java.lang.String" value="&#x41e;&#x448;&#x438;&#x431;&#x43a;&#x438; 1&#x433;&#x43e; &#x43f;&#x440;&#x43e;&#x445;&#x43e;&#x434;&#x430;"/>
+            <Property name="text" type="java.lang.String" value="&#x41e;&#x448;&#x438;&#x431;&#x43a;&#x438; :"/>
           </Properties>
         </Component>
         <Container class="javax.swing.JScrollPane" name="jScrollPane3">
@@ -361,17 +370,12 @@
                   <Component id="jLabel7" min="-2" max="-2" attributes="0"/>
                   <EmptySpace pref="177" max="32767" attributes="0"/>
               </Group>
+              <Component id="jScrollPane6" alignment="0" pref="305" max="32767" attributes="0"/>
               <Group type="102" alignment="0" attributes="0">
                   <EmptySpace max="-2" attributes="0"/>
                   <Component id="jScrollPane7" pref="281" max="32767" attributes="0"/>
                   <EmptySpace max="-2" attributes="0"/>
               </Group>
-              <Group type="102" alignment="0" attributes="0">
-                  <EmptySpace max="-2" attributes="0"/>
-                  <Component id="jLabel8" min="-2" max="-2" attributes="0"/>
-                  <EmptySpace pref="156" max="32767" attributes="0"/>
-              </Group>
-              <Component id="jScrollPane6" alignment="0" pref="305" max="32767" attributes="0"/>
           </Group>
         </DimensionLayout>
         <DimensionLayout dim="1">
@@ -379,11 +383,9 @@
               <Group type="102" alignment="0" attributes="0">
                   <Component id="jLabel7" min="-2" max="-2" attributes="0"/>
                   <EmptySpace max="-2" attributes="0"/>
-                  <Component id="jScrollPane6" pref="497" max="32767" attributes="0"/>
+                  <Component id="jScrollPane6" min="-2" pref="377" max="-2" attributes="0"/>
                   <EmptySpace type="unrelated" max="-2" attributes="0"/>
-                  <Component id="jLabel8" min="-2" max="-2" attributes="0"/>
-                  <EmptySpace max="-2" attributes="0"/>
-                  <Component id="jScrollPane7" min="-2" pref="113" max="-2" attributes="0"/>
+                  <Component id="jScrollPane7" pref="254" max="32767" attributes="0"/>
                   <EmptySpace max="-2" attributes="0"/>
               </Group>
           </Group>
@@ -393,11 +395,6 @@
         <Component class="javax.swing.JLabel" name="jLabel7">
           <Properties>
             <Property name="text" type="java.lang.String" value="OM"/>
-          </Properties>
-        </Component>
-        <Component class="javax.swing.JLabel" name="jLabel8">
-          <Properties>
-            <Property name="text" type="java.lang.String" value="&#x41e;&#x448;&#x438;&#x431;&#x43a;&#x438; 2&#x433;&#x43e; &#x43f;&#x440;&#x43e;&#x445;&#x43e;&#x434;&#x430;"/>
           </Properties>
         </Component>
         <Container class="javax.swing.JScrollPane" name="jScrollPane6">
@@ -446,6 +443,31 @@
       </Properties>
       <Events>
         <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="jButton2ActionPerformed"/>
+      </Events>
+    </Component>
+    <Component class="javax.swing.JButton" name="scanButton">
+      <Properties>
+        <Property name="text" type="java.lang.String" value="&#x41f;&#x440;&#x43e;&#x445;&#x43e;&#x434;"/>
+      </Properties>
+      <Events>
+        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="scanButtonActionPerformed"/>
+      </Events>
+    </Component>
+    <Component class="javax.swing.JButton" name="nextStep">
+      <Properties>
+        <Property name="text" type="java.lang.String" value="&#x421;&#x43b;&#x435;&#x434; &#x448;&#x430;&#x433;"/>
+        <Property name="enabled" type="boolean" value="false"/>
+      </Properties>
+      <Events>
+        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="nextStepActionPerformed"/>
+      </Events>
+    </Component>
+    <Component class="javax.swing.JButton" name="scanByStemButton">
+      <Properties>
+        <Property name="text" type="java.lang.String" value="&#x41f;&#x43e; &#x448;&#x430;&#x433;&#x430;&#x43c;"/>
+      </Properties>
+      <Events>
+        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="scanByStemButtonActionPerformed"/>
       </Events>
     </Component>
   </SubComponents>

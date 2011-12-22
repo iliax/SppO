@@ -36,11 +36,12 @@ public class TSIManager {
     }
 
 
-    public void addToTSI(String name, Integer adr) throws RepeatedLabelException{
-        if(TSI.get(name)!=null)
-            throw new RepeatedLabelException();
-        else
+    public void addToTSI(String name, Integer adr){
+
+            if(TSI.containsKey(name))
+                TSI.remove(name);
             TSI.put(name, adr);
+        
     }
 
     public Integer getLabelsAddress(String lbl){
@@ -55,8 +56,12 @@ public class TSIManager {
 
         int i = 0;
         for(Map.Entry<String, Integer> entry : TSI.entrySet()){
+            
             table.setValueAt(entry.getKey(), i, 0);
-            table.setValueAt(MainProcessor.toHexStr(entry.getValue()), i, 1);
+            if(entry.getValue() == -1 )
+                table.setValueAt("no address", i, 1);
+            else
+                table.setValueAt(MainProcessor.toHexStr(entry.getValue()), i, 1);
             i++;
         }
     }
