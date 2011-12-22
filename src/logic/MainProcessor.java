@@ -33,6 +33,8 @@ public class MainProcessor  implements  Runnable{
     Map<String , List<Integer>> labelNamesLists = new HashMap<String, List<Integer>>();
     private boolean stepMode;
 
+    List<Integer> tuneTableList = new ArrayList<Integer>();
+
     class ShowItem {
         public List<String> items = new ArrayList<String>();
 
@@ -68,11 +70,16 @@ public class MainProcessor  implements  Runnable{
 
     public void processMainScan(){
         doCleaningStaff();
-        getProgramStartAddress();
+
+        //getProgramStartAddress();    //maybe nessesary...xz
 
          for(int i=1; guiConfig.SourceTable.getValueAt(i, 1)!=null && !((String)guiConfig.SourceTable.getValueAt(i, 1)).equalsIgnoreCase("END"); i++){
              processLabelField(i);
 
+             tryLock();
+
+            if(stepMode)
+                atomicBoolean.set(false);
              
              ShowItem newShowItem = processOperation_(i);
              
@@ -87,15 +94,8 @@ public class MainProcessor  implements  Runnable{
 
              showShowItems();
 
-             while(atomicBoolean.get()==false){
-                synchronized(guiConfig){
-                    try {
-                        guiConfig.wait();
-                    } catch (InterruptedException ex) {
-                        Logger.getLogger(MainProcessor.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-                 }
-             }
+             tryLock();
+             
              if(stepMode)
                 atomicBoolean.set(false);
 
@@ -103,6 +103,19 @@ public class MainProcessor  implements  Runnable{
         programSize = ip - startAddress;
         showShowItems();
     }
+
+    void tryLock(){
+         while(atomicBoolean.get()==false){
+            synchronized(guiConfig){
+                try {
+                    guiConfig.wait();
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(MainProcessor.class.getName()).log(Level.SEVERE, null, ex);
+                }
+             }
+         }
+    }
+
 
     void showShowItems(){
          guiConfig.ObjectModuleArea.setText("");
@@ -120,6 +133,14 @@ public class MainProcessor  implements  Runnable{
          if(programSize != -1)
              showEnding();
 
+         showTuneTable();
+    }
+
+    void showTuneTable(){
+        guiConfig.TuneTable.setText("");
+        for(Integer tune : tuneTableList){
+            guiConfig.TuneTable.setText(guiConfig.TuneTable.getText()+toHexStr(tune)+"\n");
+        }
     }
 
     private void processAdditionalTableItem(int index){
@@ -167,12 +188,12 @@ public class MainProcessor  implements  Runnable{
             
                     if(Pattern.compile("^[A-Z_a-z]+([A-Za-z0-9_]){0,15}$").matcher(lbl).matches() && checkRegister(lbl) == 0){
 
-                        if(tSIManager.getLabelsAddress(lbl) == null){
+                        if(tSIManager.getLabelsAddress(lbl) == null){       //вобще нет
                             tSIManager.addToTSI(lbl, ip);
                             return;
                         }
 
-                        if(tSIManager.getLabelsAddress(lbl) != -1){
+                        if(tSIManager.getLabelsAddress(lbl) != -1){         //есть и с адресом
                             print1stScanError("error was already defined!");
                             return;
                         }
@@ -191,14 +212,33 @@ public class MainProcessor  implements  Runnable{
         tSIManager.repaintTSITable();       //////
     }
 
-    void processLabelInjection(String lbl, int ip){
+    void processLabelInjection(String lbl, int ipp){
         for(ShowItem si : showItems){
             for(String s : si.items){
-                if(s.contains("*") && s.contains(lbl)){
-                    String replace = s.replace("*" + lbl + "*", ip + "");
-                    int ind = si.items.indexOf(s);
+
+                if(s.contains("**") && s.contains(lbl)){
+                    int indOfPart = si.items.indexOf(s);
                     si.items.remove(s);
-                    si.items.add(ind, toHexStr(replace));
+
+                    int siInd = showItems.indexOf(si);
+
+                    int min = Integer.parseInt(showItems.get(siInd+1).items.get(0) , 16);
+                    
+
+                    if((ipp - min) > 0)
+                        si.items.add(indOfPart, toHexStr((ipp - min) + ""));
+                    else
+                        si.items.add(indOfPart, Integer.toHexString( 0xffffff-  ipp - min));
+
+                } else {
+
+                    if(s.contains("*") && s.contains(lbl)){
+                        String replace = s.replace("*" + lbl + "*", ipp + "");
+                        int ind = si.items.indexOf(s);
+                        si.items.remove(s);
+                        si.items.add(ind, toHexStr(replace));
+                    }
+                    
                 }
             }
         }
@@ -257,6 +297,8 @@ public class MainProcessor  implements  Runnable{
 
         for(int i=0; i<additionalTable.size(); i++)
             processAdditionalTableItem(i);
+
+
 
         showEnding();
         
@@ -320,12 +362,7 @@ public class MainProcessor  implements  Runnable{
                 print1stScanError("operation not defined! "+i);
                 return null;
             }
-                
-
         }
-
-        
-
     }
 
 
@@ -343,7 +380,7 @@ public class MainProcessor  implements  Runnable{
                 try {
                     Integer val= Integer.parseInt((String)guiConfig.SourceTable.getValueAt(i, 2));
                     if( val > 127 || val < -128 ){
-                        print1stScanError("not valid value for word directive! str "+i );
+                        print1stScanError("not valid value for byte directive! str "+i );
                         return null;
                     }
                 } catch(Exception e) {}
@@ -625,26 +662,69 @@ public class MainProcessor  implements  Runnable{
         return null;
     }
 
-    public void doStuffWithLabel(String lbl, ShowItem showItem ){
+    void processSlimLabel(String lbl, ShowItem showItem,AdditionalTableItem ati){
+
+        if(tSIManager.getLabelsAddress(lbl) == null){  // поиск неудачен
+            tSIManager.addToTSI(lbl, -1);
+            labelNamesLists.put(lbl, null);
+            showItem.add("**"+lbl+"**");
+        } else {        // таки удачен
+            if(tSIManager.getLabelsAddress(lbl) != -1){  // адрес есть
+                showItem.add( ( tSIManager.getLabelsAddress(lbl) - ( ip + ati.getTkoOperationSize() ) )+"");
+            } else {                                    //адреса нет
+                labelNamesLists.put(lbl, null);
+                showItem.add("**"+lbl+"**");
+            }
+        }
+
+        
+    }
+
+    public void doStuffWithLabel(String lbl, ShowItem showItem,AdditionalTableItem ati ){
+
+        lbl = lbl.trim();
+
+        if(lbl.startsWith("[") && lbl.endsWith("]")){
+            if(Pattern.compile("^[A-Z_a-z]+([A-Za-z0-9_]){0,15}$").matcher(lbl.substring(1, lbl.length()-1)).matches() && (checkRegister(lbl) == 0)){
+                
+                processSlimLabel(lbl.substring(1, lbl.length()-1),showItem, ati);
+
+                return;
+
+            } else {
+               
+                print1stScanError("this is gonna be label operand! ipp "+toHexStr(ip));
+                return;
+            }
+        }
+
+        // простая метка
         if( ! ( Pattern.compile("^[A-Z_a-z]+([A-Za-z0-9_]){0,15}$").matcher(lbl).matches() && (checkRegister(lbl) == 0) ) ){
             print1stScanError("this is gonna be label operand! ip "+toHexStr(ip));
             return;
         }
 
+        if(tSIManager.getLabelsAddress(lbl) != null ){                                              //поиск удачен
 
-                if(tSIManager.getLabelsAddress(lbl) != null ){     //поиск удачен
-                     if(tSIManager.getLabelsAddress(lbl) != -1){        //адрес есть
-                         showItem.add(toHexStr(tSIManager.getLabelsAddress(lbl)));
-                     } else {   //удачен и должен быть доп список
-                         if(labelNamesLists.containsKey(lbl)){
-                             showItem.add("*"+lbl+"*");
-                         }
-                     }
-                 } else {  //поиск неудачен
-                    tSIManager.addToTSI(lbl, -1);
-                    labelNamesLists.put(lbl, null);
-                    showItem.add("*"+lbl+"*");
+             if(tSIManager.getLabelsAddress(lbl) != -1){                                                    //адрес есть
+                 showItem.add(toHexStr(tSIManager.getLabelsAddress(lbl)));
+                 tuneTableList.add(ip);
+             } else {                                                           //удачен и (нет адреса) -> должен быть доп список
+
+                 if(labelNamesLists.containsKey(lbl)){
+                     showItem.add("*"+lbl+"*");
+                     tuneTableList.add(ip);
                  }
+
+             }
+         } else {                                                           //поиск неудачен
+            tSIManager.addToTSI(lbl, -1);
+            labelNamesLists.put(lbl, null);
+            showItem.add("*"+lbl+"*");
+            tuneTableList.add(ip);
+         }
+
+        
     }
 
 
@@ -652,7 +732,7 @@ public class MainProcessor  implements  Runnable{
         if(ati.tkoOperationSize == 4){      //должна быть 1 метка
              if(ati.operands.length >=2 && ati.operands[0]!=null  && !ati.operands[0].trim().isEmpty()){
                  
-                doStuffWithLabel(ati.operands[0], showItem);
+                doStuffWithLabel(ati.operands[0], showItem, ati);
                  
              } else {
                  print1stScanError("invalid operands for this operation size 4");
@@ -683,9 +763,9 @@ public class MainProcessor  implements  Runnable{
                     if(checkRegister(ati.operands[0].trim()) > 0 || checkRegister(ati.operands[1].trim()) > 0){
                         if(checkRegister(ati.operands[0].trim()) > 0){
                             showItem.add(checkRegister(ati.operands[0].trim())+"");
-                            doStuffWithLabel(ati.operands[1].trim(), showItem);
+                            doStuffWithLabel(ati.operands[1].trim(), showItem, ati);
                         } else {
-                            doStuffWithLabel(ati.operands[0].trim(), showItem);
+                            doStuffWithLabel(ati.operands[0].trim(), showItem, ati);
                             showItem.add(checkRegister(ati.operands[1].trim())+"");
                         }
 

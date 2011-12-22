@@ -41,7 +41,8 @@ public class TSIManager {
             if(TSI.containsKey(name))
                 TSI.remove(name);
             TSI.put(name, adr);
-        
+
+            showWithTable(tsitable);
     }
 
     public Integer getLabelsAddress(String lbl){
