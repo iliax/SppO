@@ -1,3 +1,8 @@
+
+   /// 33333333333333333333333333333333333333
+
+
+
 package logic;
 
 import java.util.*;
@@ -8,6 +13,7 @@ import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import javax.swing.*;
 import logic.TKOManager.TKOItem;
+import logic.TSIManager.RepeatedLabelException;
 import sppo.Main;
 import sun.misc.Version;
 
@@ -24,7 +30,7 @@ public class MainProcessor  implements  Runnable{
 
     private int ip=0;
     public volatile int programSize=-1;
-
+ private Map<String,Integer> TVS = new HashMap<String, Integer>(); //табла внешних ссылок
     private List<AdditionalTableItem> additionalTable=new ArrayList<AdditionalTableItem>();
     private int startAddress = 0;
 
@@ -35,8 +41,10 @@ public class MainProcessor  implements  Runnable{
 
     List<Integer> tuneTableList = new ArrayList<Integer>();
 
+    List<String> extLabelsKeeper = new ArrayList<String>(50);
+
     class ShowItem {
-        public List<String> items = new ArrayList<String>();
+        public LinkedList<String> items = new LinkedList<String>();
 
         public void add(String str){
             items.add(str);
@@ -123,6 +131,11 @@ public class MainProcessor  implements  Runnable{
          if(programSize != -1)
             guiConfig.ObjectModuleArea.setText(guiConfig.ObjectModuleArea.getText()+showHeader());
 
+         if(programSize != -1){
+             showDrecord();
+             showRrecord();
+        }
+
          for(ShowItem si: showItems){
              guiConfig.ObjectModuleArea.setText(guiConfig.ObjectModuleArea.getText()+"T  ");
              for(String s : si.items)
@@ -130,16 +143,46 @@ public class MainProcessor  implements  Runnable{
              guiConfig.ObjectModuleArea.setText(guiConfig.ObjectModuleArea.getText()+"\n");
          }
 
-         if(programSize != -1){
+         if(programSize != -1){      
+
              for(Integer mod : tuneTableList)
                  guiConfig.ObjectModuleArea.setText(guiConfig.ObjectModuleArea.getText()+"M  "+toHexStr(mod)+"\n");
              showEnding();
+
+             
         }
 
          showTuneTable();
+
+         guiConfig.TVSTable.setText("");
+         for(String s : TVS.keySet()){
+             guiConfig.TVSTable.setText(guiConfig.TVSTable.getText()+s+"  "+"\n");
+         }
+    }
+
+    void showRrecord(){
+        String res = "R  ";
+        for(String s : TVS.keySet())
+            res+=s+"  ";
+
+        guiConfig.ObjectModuleArea.setText(guiConfig.ObjectModuleArea.getText()+res+"\n");
+    }
+
+    void showDrecord(){
+        String res = "D  ";
+        for(String lbl : tSIManager.TSI.keySet())
+            if(tSIManager.isLblExternal(lbl)){
+                if(tSIManager.getLabelsAddress(lbl)!=-1)
+                    res+= lbl +"-"+toHexStr(tSIManager.getLabelsAddress(lbl))+"  ";
+                else
+                    res+= lbl +"-not init  ";
+            }
+
+        guiConfig.ObjectModuleArea.setText(guiConfig.ObjectModuleArea.getText()+res + "\n");
     }
 
     void showTuneTable(){
+
         guiConfig.TuneTable.setText("");
         for(Integer tune : tuneTableList){
             guiConfig.TuneTable.setText(guiConfig.TuneTable.getText()+toHexStr(tune)+"\n");
@@ -185,12 +228,16 @@ public class MainProcessor  implements  Runnable{
         guiConfig.secondScanErrors.setText(guiConfig.secondScanErrors.getText()+body);
     }
 
+
+
     private void processLabelField(int i){
         String lbl= (String)guiConfig.SourceTable.getValueAt(i, 0);
         if(lbl != null && !lbl.isEmpty()){
-            
-                    if(Pattern.compile("^[A-Z_a-z]+([A-Za-z0-9_]){0,15}$").matcher(lbl).matches() && checkRegister(lbl) == 0){
-
+            try{
+             if(Pattern.compile("^[A-Z_a-z]+([A-Za-z0-9_]){0,15}$").matcher(lbl).matches() && checkRegister(lbl) == 0){
+                    if(TVS.get(lbl)!=null)
+                        print1stScanError("label "+lbl+" was defined as external!");
+                    else {
                         if(tSIManager.getLabelsAddress(lbl) == null){       //вобще нет
                             tSIManager.addToTSI(lbl, ip);
                             return;
@@ -202,17 +249,38 @@ public class MainProcessor  implements  Runnable{
                         }
 
                         if(tSIManager.getLabelsAddress(lbl) == -1){     //есть но без адреса - есть вспом список
+                            
                             tSIManager.addToTSI(lbl, ip);
+                            
                             labelNamesLists.remove(lbl);
                             processLabelInjection(lbl, ip);
                         }
                         
-                    } else {
-                        print1stScanError("error lbl definition- "+lbl);
-                    }      
+                    }
+               } else {
+                   print1stScanError("error lbl definition- "+lbl);
+               }
+            }catch(Exception e){
+                print1stScanError("repeated Label! "+lbl);
+            }
         }
 
         tSIManager.repaintTSITable();       //////
+    }
+
+
+   private void addLabelToTuneTable( int address){
+        tuneTableList.add(address);
+        guiConfig.TuneTable.setText(guiConfig.TuneTable.getText()+toHexStr(address)+"\n");
+    }
+
+    private void addExterLabelToTuneTable(int addr, String lbl){
+        tuneTableList.add(addr);
+
+        TVS.remove(lbl);
+        TVS.put(lbl, 0);
+
+        guiConfig.TuneTable.setText(guiConfig.TuneTable.getText()+toHexStr(addr)+" "+lbl+"\n");
     }
 
     void processLabelInjection(String lbl, Integer ipp){
@@ -248,6 +316,55 @@ public class MainProcessor  implements  Runnable{
                 }
             }
         }
+    }
+
+
+    private boolean isEXTDirective(String str) {
+       if(str==null || str.isEmpty())
+           return false;
+       if(str.toUpperCase().equals("EXTREF") || str.toUpperCase().equals("EXTDEF"))
+           return true;
+       return false;
+    }
+
+    private void processEXTDirective(int i) {
+        String str = (String)guiConfig.SourceTable.getValueAt(i, 1);
+
+        if(str.toUpperCase().equals("EXTDEF"))
+            processEXTDEF(i);
+        else
+            processEXTREF(i);
+    }
+
+    private void processEXTDEF(int i) {
+        String lbl=(String)guiConfig.SourceTable.getValueAt(i, 2);
+        if(lbl!=null && !lbl.isEmpty()){
+            try{
+                if(Pattern.compile("^[A-Z_a-z]+([A-Za-z0-9_]){0,15}$").matcher(lbl).matches() && checkRegister(lbl) == 0)
+                    tSIManager.addToTSI(lbl.trim(), -1, true);
+                else
+                    print1stScanError("wrong lbl format! str "+i);
+            } catch(RepeatedLabelException e){
+                print1stScanError("label was already defined!");
+            }
+        } else
+            print1stScanError("wrong param for EXTDEF! str "+i);
+    }
+
+    private void processEXTREF(int i) {
+        String lbl=(String)guiConfig.SourceTable.getValueAt(i, 2);
+        if(lbl!=null && !lbl.isEmpty()){
+                if(Pattern.compile("^[A-Z_a-z]+([A-Za-z0-9_]){0,15}$").matcher(lbl).matches() && checkRegister(lbl) == 0){
+                    if(TVS.get(lbl)!=null || tSIManager.getLabelsAddress(lbl)!=null)
+                        print1stScanError("lbl already defined!");
+                    else
+                        TVS.put(lbl,-1);
+
+                } else
+                    print1stScanError("wrong lbl format!");
+
+        } else
+            print1stScanError("wrong param for EXTREF! str "+i);
     }
 
     private void getProgramStartAddress(){
@@ -334,6 +451,12 @@ public class MainProcessor  implements  Runnable{
     }
 
     private ShowItem processOperation_(int i){
+        if(isEXTDirective((String)guiConfig.SourceTable.getValueAt(i, 1))){
+            processEXTDirective(i);
+            return null;
+        }
+
+
         if(isDirective((String)guiConfig.SourceTable.getValueAt(i, 1)) != null){
             return processDirective_(i);
 
@@ -670,6 +793,10 @@ public class MainProcessor  implements  Runnable{
 
     void processSlimLabel(String lbl, ShowItem showItem,AdditionalTableItem ati){
 
+        if(TVS.containsKey(lbl)){
+            print1stScanError("external lbl cant use in this case! "+ati.getAddress());
+        }
+
         if(tSIManager.getLabelsAddress(lbl) == null){  // поиск неудачен
             tSIManager.addToTSI(lbl, -1);
             labelNamesLists.put(lbl, null);
@@ -690,6 +817,7 @@ public class MainProcessor  implements  Runnable{
 
         lbl = lbl.trim();
 
+
         if(lbl.startsWith("[") && lbl.endsWith("]")){
             if(Pattern.compile("^[A-Z_a-z]+([A-Za-z0-9_]){0,15}$").matcher(lbl.substring(1, lbl.length()-1)).matches() && (checkRegister(lbl) == 0)){
                 
@@ -709,6 +837,15 @@ public class MainProcessor  implements  Runnable{
             print1stScanError("this is gonna be label operand! ip "+toHexStr(ip));
             return;
         }
+
+        ///////////////////////////
+        if(TVS.containsKey(lbl)){
+            showItem.add(toHexStr(0));
+            tuneTableList.add(ip);
+            return;
+        } 
+
+        /////////////////////////
 
         if(tSIManager.getLabelsAddress(lbl) != null ){                                              //поиск удачен
 
