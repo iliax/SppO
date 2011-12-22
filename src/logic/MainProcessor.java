@@ -130,8 +130,11 @@ public class MainProcessor  implements  Runnable{
              guiConfig.ObjectModuleArea.setText(guiConfig.ObjectModuleArea.getText()+"\n");
          }
 
-         if(programSize != -1)
+         if(programSize != -1){
+             for(Integer mod : tuneTableList)
+                 guiConfig.ObjectModuleArea.setText(guiConfig.ObjectModuleArea.getText()+"M  "+toHexStr(mod)+"\n");
              showEnding();
+        }
 
          showTuneTable();
     }
@@ -200,8 +203,8 @@ public class MainProcessor  implements  Runnable{
 
                         if(tSIManager.getLabelsAddress(lbl) == -1){     //есть но без адреса - есть вспом список
                             tSIManager.addToTSI(lbl, ip);
-                            processLabelInjection(lbl, ip);
                             labelNamesLists.remove(lbl);
+                            processLabelInjection(lbl, ip);
                         }
                         
                     } else {
@@ -212,7 +215,7 @@ public class MainProcessor  implements  Runnable{
         tSIManager.repaintTSITable();       //////
     }
 
-    void processLabelInjection(String lbl, int ipp){
+    void processLabelInjection(String lbl, Integer ipp){
         for(ShowItem si : showItems){
             for(String s : si.items){
 
@@ -222,13 +225,16 @@ public class MainProcessor  implements  Runnable{
 
                     int siInd = showItems.indexOf(si);
 
+                    //if(siInd== showItems.size()-1)
+                    //    si.items.add(indOfPart, "**"+lbl+"**");  //пока оставляем
+
                     int min = Integer.parseInt(showItems.get(siInd+1).items.get(0) , 16);
                     
 
                     if((ipp - min) > 0)
-                        si.items.add(indOfPart, toHexStr((ipp - min) + ""));
+                        si.items.add(indOfPart, toHexStr((ipp - min))+"_");
                     else
-                        si.items.add(indOfPart, Integer.toHexString( 0xffffff-  ipp - min));
+                        si.items.add(indOfPart, toHexStr((ipp - min))+"|");
 
                 } else {
 
@@ -668,9 +674,9 @@ public class MainProcessor  implements  Runnable{
             tSIManager.addToTSI(lbl, -1);
             labelNamesLists.put(lbl, null);
             showItem.add("**"+lbl+"**");
-        } else {        // таки удачен
+        } else {                                        // таки удачен
             if(tSIManager.getLabelsAddress(lbl) != -1){  // адрес есть
-                showItem.add( ( tSIManager.getLabelsAddress(lbl) - ( ip + ati.getTkoOperationSize() ) )+"");
+                showItem.add( toHexStr( tSIManager.getLabelsAddress(lbl) - ( ip + ati.getTkoOperationSize() ) )+"");
             } else {                                    //адреса нет
                 labelNamesLists.put(lbl, null);
                 showItem.add("**"+lbl+"**");
