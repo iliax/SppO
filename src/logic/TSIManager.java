@@ -18,6 +18,7 @@ public class TSIManager {
 
     public TSIManager() {
         TSI=new HashMap<String, Integer>();
+         TSI_bools=new HashMap<String, Boolean>();
     }
 
     public TSIManager(Map<String, Integer> TSI) {
@@ -26,6 +27,7 @@ public class TSIManager {
 
     public TSIManager(JTable tsitable) {
         this.tsitable = tsitable;
+         TSI_bools=new HashMap<String, Boolean>();
         TSI=new HashMap<String, Integer>();
     }
 
@@ -38,9 +40,12 @@ public class TSIManager {
 
     public void addToTSI(String name, Integer adr){
 
-            if(TSI.containsKey(name))
-                TSI.remove(name);
-            TSI.put(name, adr);
+                if(TSI.get(name)!=null)
+                    throw new RepeatedLabelException();
+                else{
+                    TSI.put(name, adr);
+                    TSI_bools.put(name, false);
+                }
 
             showWithTable(tsitable);
     }
@@ -65,6 +70,8 @@ public class TSIManager {
                 table.setValueAt(MainProcessor.toHexStr(entry.getValue()), i, 1);
             i++;
         }
+
+
     }
 
     public void repaintTSITable(){
@@ -78,6 +85,28 @@ public class TSIManager {
         TSI.clear();
         if(tsitable!=null)
             Main.clearJTable(tsitable);
+    }
+
+    public Map<String , Boolean> TSI_bools;
+
+    public void addToTSI(String name, Integer adr, boolean bool) throws RepeatedLabelException{
+        if(bool==true && TSI.get(name)!=null){
+            if(TSI_bools.get(name) == false){
+                TSI_bools.remove(name);
+                TSI_bools.put(name, true);
+            } else {
+                throw new RepeatedLabelException();
+            }
+            return;
+        }
+
+        if(TSI.get(name)!=null){
+            throw new RepeatedLabelException();
+        }
+        else {
+            TSI.put(name, adr);
+            TSI_bools.put(name, bool);
+        }
     }
 
     public class RepeatedLabelException extends RuntimeException {

@@ -8,6 +8,7 @@ import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import javax.swing.*;
 import logic.TKOManager.TKOItem;
+import logic.TSIManager.RepeatedLabelException;
 import sppo.Main;
 import sun.misc.Version;
 
@@ -34,6 +35,8 @@ public class MainProcessor  implements  Runnable{
     private boolean stepMode;
 
     List<Integer> tuneTableList = new ArrayList<Integer>();
+
+     private Map<String,Integer> TVS = new HashMap<String, Integer>(); //табла внешних ссылок
 
     class ShowItem {
         public List<String> items = new ArrayList<String>();
@@ -66,6 +69,54 @@ public class MainProcessor  implements  Runnable{
     @Override
     public void run() {
         processMainScan();
+    }
+
+     private boolean isEXTDirective(String str) {
+       if(str==null || str.isEmpty())
+           return false;
+       if(str.toUpperCase().equals("EXTREF") || str.toUpperCase().equals("EXTDEF"))
+           return true;
+       return false;
+    }
+
+    private void processEXTDirective(int i) {
+        String str = (String)guiConfig.SourceTable.getValueAt(i, 1);
+
+        if(str.toUpperCase().equals("EXTDEF"))
+            processEXTDEF(i);
+        else
+            processEXTREF(i);
+    }
+
+    private void processEXTDEF(int i) {
+        String lbl=(String)guiConfig.SourceTable.getValueAt(i, 2);
+        if(lbl!=null && !lbl.isEmpty()){
+            try{
+                if(Pattern.compile("^[A-Z_a-z]+([A-Za-z0-9_]){0,15}$").matcher(lbl).matches() && checkRegister(lbl) == 0)
+                    tSIManager.addToTSI(lbl.trim(), -1 ,true);
+                else
+                    print1stScanError("wrong lbl format! str "+i);
+            } catch(RepeatedLabelException e){
+                print1stScanError("label was already defined!");
+            }
+        } else
+            print1stScanError("wrong param for EXTDEF! str "+i);
+    }
+
+    private void processEXTREF(int i) {
+        String lbl=(String)guiConfig.SourceTable.getValueAt(i, 2);
+        if(lbl!=null && !lbl.isEmpty()){
+                if(Pattern.compile("^[A-Z_a-z]+([A-Za-z0-9_]){0,15}$").matcher(lbl).matches() && checkRegister(lbl) == 0){
+                    if(TVS.get(lbl)!=null || tSIManager.getLabelsAddress(lbl)!=null)
+                        print1stScanError("lbl already defined!");
+                    else
+                        TVS.put(lbl,-1);
+
+                } else
+                    print1stScanError("wrong lbl format!");
+
+        } else
+            print1stScanError("wrong param for EXTREF! str "+i);
     }
 
     public void processMainScan(){
@@ -137,6 +188,11 @@ public class MainProcessor  implements  Runnable{
         }
 
          showTuneTable();
+
+         guiConfig.TSVTable.setText("");
+         for(String s: tSIManager.TSI_bools.keySet()){
+             guiConfig.TSVTable.setText(guiConfig.TSVTable.getText()+s+"\n");
+         }
     }
 
     void showTuneTable(){
@@ -188,28 +244,38 @@ public class MainProcessor  implements  Runnable{
     private void processLabelField(int i){
         String lbl= (String)guiConfig.SourceTable.getValueAt(i, 0);
         if(lbl != null && !lbl.isEmpty()){
-            
+            try {
                     if(Pattern.compile("^[A-Z_a-z]+([A-Za-z0-9_]){0,15}$").matcher(lbl).matches() && checkRegister(lbl) == 0){
 
-                        if(tSIManager.getLabelsAddress(lbl) == null){       //вобще нет
-                            tSIManager.addToTSI(lbl, ip);
-                            return;
-                        }
+                        if(TVS.containsKey(lbl)){ // это вн ссыль
+                            print1stScanError("label "+lbl+" was defined as external!");
+                        } else {
+                            
+                            if(tSIManager.getLabelsAddress(lbl) == null){
+                                tSIManager.addToTSI(lbl, i);
+                            } else{
+                       
 
-                        if(tSIManager.getLabelsAddress(lbl) != -1){         //есть и с адресом
-                            print1stScanError("error was already defined!");
-                            return;
-                        }
+                                if(tSIManager.getLabelsAddress(lbl) != -1){         //есть и с адресом
+                                    print1stScanError("error was already defined!");
+                                    return;
+                                }
 
-                        if(tSIManager.getLabelsAddress(lbl) == -1){     //есть но без адреса - есть вспом список
-                            tSIManager.addToTSI(lbl, ip);
-                            labelNamesLists.remove(lbl);
-                            processLabelInjection(lbl, ip);
+                                if(tSIManager.getLabelsAddress(lbl) == -1){     //есть но без адреса - есть вспом список
+                                    tSIManager.addToTSI(lbl, ip);
+                                    labelNamesLists.remove(lbl);
+                                    processLabelInjection(lbl, ip);
+                                }
+
+                            }
                         }
                         
-                    } else {
-                        print1stScanError("error lbl definition- "+lbl);
-                    }      
+                } else {
+                    print1stScanError("error lbl definition "+lbl);
+                }
+            } catch(Exception e){
+                print1stScanError("repeated Label! "+lbl);
+            }
         }
 
         tSIManager.repaintTSITable();       //////
