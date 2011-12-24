@@ -172,7 +172,7 @@ public class MainProcessor {
                     int op = Integer.parseInt(str);
                     return op;
                 } catch(Exception e){
-                    print1stScanError("operand parsing error! "+i);
+                    print1stScanError("operand parsing error!!! "+i);
                     return 0;
                 }
         print1stScanError("operand parsing error "+i);
@@ -181,11 +181,26 @@ public class MainProcessor {
 
     private int getOperandSize2(int i){         // for WORD and BYTE
         String str = (String)guiConfig.SourceTable.getValueAt(i, 2);
+
+        if(((String)guiConfig.SourceTable.getValueAt(i, 1)).trim().equalsIgnoreCase("BYTE")){
+            try {
+                Integer val= Integer.parseInt(str);
+                if(val > 127 || val < -128)
+                    print1stScanError("invalid value for BYTE! str "+i);
+            } catch(Exception e){}
+        } else {
+            try {
+                Integer val= Integer.parseInt(str);
+                if(val > (0xffffff/2) - 1 || val < -0xffffff/2 )
+                    print1stScanError("invalid value for WORD! str "+i);
+            } catch(Exception e){}
+        }
+
         int res= _getOperandSize(str);
         if(res!= -1)
             return res;
         else
-            print1stScanError("operand parsing error "+i);
+            print1stScanError("Operand parsing error "+i);
         return 0;
     }
 
